@@ -4,4 +4,5 @@ export * from './config/sync';
 export * from './repositories';
 export * from './services';
 export * from './stores';
+export * from './telemetry';
 export * from './types';

@@ -4,3 +4,6 @@ export * from './ImportOrchestrator';
 export * from './PatternFitCheck';
 export * from './TotalHoldingsStateBuilder';
 export * from './FinancialStateService';
+export * from './ImportRunQueryService';
+export * from './SecurityLotQueryService';
+export * from './aggregateHoldingLots';

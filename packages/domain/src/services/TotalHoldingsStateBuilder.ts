@@ -1,5 +1,6 @@
 import type { PortfolioRepository } from '../repositories';
 import type { PortfolioImportRun, ProviderHoldingRecord, TotalHoldingsPosition, TotalHoldingsState } from '../types';
+import { aggregateHoldingLots } from './aggregateHoldingLots';
 
 export class TotalHoldingsStateBuilder {
   constructor(private readonly repository: PortfolioRepository) {}
@@ -21,22 +22,19 @@ export class TotalHoldingsStateBuilder {
 
     const eligible = records.filter((record) => isRecordEligible(record, validRuns));
 
-    const latestByKey = new Map<string, ProviderHoldingRecord>();
+    const lotsByKey = new Map<string, ProviderHoldingRecord[]>();
     for (const record of eligible) {
       const key = positionKey(record);
-      const existing = latestByKey.get(key);
-      if (!existing) {
-        latestByKey.set(key, record);
-        continue;
-      }
-
-      if (isNewer(record, existing, validRuns)) {
-        latestByKey.set(key, record);
+      const existing = lotsByKey.get(key);
+      if (existing) {
+        existing.push(record);
+      } else {
+        lotsByKey.set(key, [record]);
       }
     }
 
-    const positions = Array.from(latestByKey.values())
-      .map((record) => toPosition(record))
+    const positions = Array.from(lotsByKey.entries())
+      .map(([key, lots]) => aggregatePosition(key, lots))
       .sort((a, b) => a.key.localeCompare(b.key));
 
     const quantityTotalsByCurrency: Record<string, number> = {};
@@ -56,8 +54,8 @@ export class TotalHoldingsStateBuilder {
         insufficientData = true;
       }
 
-      if (position.sourceImportRunId) {
-        sourceRunIdSet.add(position.sourceImportRunId);
+      for (const runId of position.sourceImportRunIds) {
+        sourceRunIdSet.add(runId);
       }
 
       if (!asOf || position.actionDate > asOf) {
@@ -65,7 +63,8 @@ export class TotalHoldingsStateBuilder {
       }
     }
 
-    const recordSetHash = hashRecordSet(positions.map((p) => p.sourceRecordId));
+    const allRecordIds = positions.flatMap((p) => p.sourceRecordIds);
+    const recordSetHash = hashRecordSet(allRecordIds);
 
     return {
       stateType: 'total_holdings',
@@ -97,38 +96,33 @@ function positionKey(record: ProviderHoldingRecord): string {
   return `${record.providerId}:${record.securityId}`;
 }
 
-function isNewer(
-  candidate: ProviderHoldingRecord,
-  current: ProviderHoldingRecord,
-  validRuns: Map<string, PortfolioImportRun>,
-): boolean {
-  if (candidate.actionDate > current.actionDate) return true;
-  if (candidate.actionDate < current.actionDate) return false;
+function aggregatePosition(key: string, lots: ProviderHoldingRecord[]): TotalHoldingsPosition {
+  const first = lots[0];
+  const agg = aggregateHoldingLots(lots);
 
-  const candidateRun = candidate.importRunId ? validRuns.get(candidate.importRunId) : undefined;
-  const currentRun = current.importRunId ? validRuns.get(current.importRunId) : undefined;
-
-  if (candidateRun?.startedAt && currentRun?.startedAt) {
-    if (candidateRun.startedAt > currentRun.startedAt) return true;
-    if (candidateRun.startedAt < currentRun.startedAt) return false;
+  const sourceRecordIds: string[] = [];
+  const sourceRunIdSet = new Set<string>();
+  for (const lot of lots) {
+    sourceRecordIds.push(lot.id);
+    if (lot.importRunId) {
+      sourceRunIdSet.add(lot.importRunId);
+    }
   }
 
-  return candidate.updatedAt > current.updatedAt;
-}
-
-function toPosition(record: ProviderHoldingRecord): TotalHoldingsPosition {
   return {
-    key: positionKey(record),
-    providerId: record.providerId,
-    securityId: record.securityId,
-    securityName: record.securityName,
-    currency: record.currency,
-    quantity: record.quantity,
-    costBasis: record.costBasis,
-    currentPrice: record.currentPrice,
-    actionDate: record.actionDate,
-    sourceRecordId: record.id,
-    sourceImportRunId: record.importRunId,
+    key,
+    providerId: first.providerId,
+    securityId: first.securityId,
+    securityName: first.securityName,
+    currency: first.currency,
+    quantity: agg.totalQuantity,
+    costBasis: agg.weightedAvgCostBasis,
+    totalCost: agg.totalCost,
+    currentPrice: agg.latestCurrentPrice,
+    actionDate: agg.latestActionDate,
+    lotCount: lots.length,
+    sourceRecordIds,
+    sourceImportRunIds: Array.from(sourceRunIdSet).sort(),
   };
 }
 

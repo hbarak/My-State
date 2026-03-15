@@ -1,4 +1,12 @@
 import { CurrencyCode, ISODate, ISODateTime } from './common';
+import type { PortfolioImportRun } from './portfolio';
+
+export interface ImportRunSummary {
+  run: PortfolioImportRun;
+  rawRowCounts: { total: number; valid: number; invalid: number; duplicate: number };
+  lotCount: number;
+  tradeCount: number;
+}
 
 export interface TotalHoldingsPosition {
   key: string;
@@ -6,12 +14,19 @@ export interface TotalHoldingsPosition {
   securityId: string;
   securityName: string;
   currency: CurrencyCode;
+  /** Total quantity across all lots for this security */
   quantity: number;
+  /** Total cost basis across all lots (sum of costBasis * quantity per lot / total quantity = weighted avg) */
   costBasis: number;
+  /** Total cost (sum of costBasis across all lots, before averaging) */
+  totalCost: number;
   currentPrice?: number;
   actionDate: ISODate;
-  sourceRecordId: string;
-  sourceImportRunId?: string;
+  /** Number of lots that make up this position */
+  lotCount: number;
+  /** IDs of all lot records included in this position */
+  sourceRecordIds: string[];
+  sourceImportRunIds: string[];
 }
 
 export interface TotalHoldingsState {

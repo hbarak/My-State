@@ -108,3 +108,9 @@ export interface HoldingSnapshot {
   currency: CurrencyCode;
   asOf: ISODateTime;
 }
+
+/**
+ * Alias for ProviderHoldingRecord — each record represents a single purchase lot
+ * (one buy event with its own date, quantity, and cost basis), not an aggregate snapshot.
+ */
+export type HoldingLot = ProviderHoldingRecord;

@@ -12,7 +12,7 @@ import type {
 export interface ImportPreviewRow {
   rowNumber: number;
   rowPayload: Record<string, string>;
-  normalized?: Record<string, unknown>;
+  normalized?: unknown;
   isValid: boolean;
   isDuplicate: boolean;
   errorCode?: string;
@@ -284,6 +284,11 @@ export class PsagotHoldingsImportHandler implements DomainImportHandler {
     }
 
     const existing = await this.repository.listHoldingRecordsByProvider(context.providerId);
+    const existingByIdentity = new Map<string, ProviderHoldingRecord>();
+    for (const record of existing) {
+      existingByIdentity.set(holdingLotIdentityKey(record), record);
+    }
+
     const previewRows = parsedRows.map((row, idx) =>
       toHoldingPreviewRow({
         row,
@@ -292,6 +297,7 @@ export class PsagotHoldingsImportHandler implements DomainImportHandler {
         providerIntegrationId: context.providerIntegrationId,
         profile: context.profile,
         existing,
+        existingByIdentity,
       }),
     );
 
@@ -304,12 +310,58 @@ export class PsagotHoldingsImportHandler implements DomainImportHandler {
     };
   }
 
-  async commit(_context: ImportContext, preview: ImportPreviewResult, runId: string): Promise<void> {
-    const records = preview.validRows.map((row) => ({
-      ...(row.normalized as ProviderHoldingRecord),
-      importRunId: runId,
-    }));
-    await this.repository.upsertHoldingRecords(records);
+  async commit(context: ImportContext, preview: ImportPreviewResult, runId: string): Promise<void> {
+    const existing = await this.repository.listHoldingRecordsByProvider(context.providerId);
+
+    // Build set of lot identity keys present in the new CSV (valid + duplicate rows)
+    const newLotKeys = new Set<string>();
+    for (const row of [...preview.validRows, ...preview.duplicateRows]) {
+      if (row.normalized) {
+        newLotKeys.add(holdingLotIdentityKey(row.normalized as ProviderHoldingRecord));
+      }
+    }
+
+    // Soft-delete existing lots not present in new CSV (they were sold)
+    const deletedAt = nowIso();
+    const toDelete = existing.filter((record) => !newLotKeys.has(holdingLotIdentityKey(record)));
+    if (toDelete.length > 0) {
+      const softDeleted = toDelete.map((record) => ({ ...record, deletedAt, updatedAt: deletedAt }));
+      await this.repository.upsertHoldingRecords(softDeleted);
+    }
+
+    // For valid rows: check if this is an update to an existing lot (same identity, different quantity)
+    const existingByIdentity = new Map<string, ProviderHoldingRecord>();
+    for (const record of existing) {
+      existingByIdentity.set(holdingLotIdentityKey(record), record);
+    }
+
+    const records: ProviderHoldingRecord[] = [];
+    for (const row of preview.validRows) {
+      const normalized = row.normalized as ProviderHoldingRecord;
+      const identityKey = holdingLotIdentityKey(normalized);
+      const existingRecord = existingByIdentity.get(identityKey);
+
+      if (existingRecord) {
+        // Update existing record with new quantity (partial sell)
+        records.push({
+          ...existingRecord,
+          quantity: normalized.quantity,
+          currentPrice: normalized.currentPrice,
+          importRunId: runId,
+          updatedAt: nowIso(),
+        });
+      } else {
+        // New lot
+        records.push({
+          ...normalized,
+          importRunId: runId,
+        });
+      }
+    }
+
+    if (records.length > 0) {
+      await this.repository.upsertHoldingRecords(records);
+    }
   }
 
   async undo(_context: ImportContext, runId: string): Promise<void> {
@@ -369,14 +421,14 @@ function toPreviewRow(params: {
       errorMessage: 'Account is not mapped/known. Add account mapping or cancel import.',
     };
   }
-  normalized.accountId = resolvedAccountId;
+  const resolvedNormalized: TradeTransaction = { ...normalized, accountId: resolvedAccountId };
 
-  const duplicate = isDuplicateTrade(normalized, params.existingTrades);
+  const duplicate = isDuplicateTrade(resolvedNormalized, params.existingTrades);
 
   return {
     rowNumber: params.rowNumber,
     rowPayload: params.row,
-    normalized,
+    normalized: resolvedNormalized,
     isValid: true,
     isDuplicate: duplicate,
     errorCode: duplicate ? 'DUPLICATE_TRADE' : undefined,
@@ -391,6 +443,7 @@ function toHoldingPreviewRow(params: {
   providerIntegrationId: string;
   profile: ProviderMappingProfile;
   existing: ProviderHoldingRecord[];
+  existingByIdentity?: Map<string, ProviderHoldingRecord>;
 }): ImportPreviewRow {
   const normalizedOrError = normalizeHoldingRow(params.row, params.profile);
   if ('errorCode' in normalizedOrError) {
@@ -413,16 +466,42 @@ function toHoldingPreviewRow(params: {
     updatedAt: nowIso(),
   };
 
+  // Check for exact duplicate (same identity + same quantity)
   const duplicate = isDuplicateHolding(normalized, params.existing);
+  if (duplicate) {
+    return {
+      rowNumber: params.rowNumber,
+      rowPayload: params.row,
+      normalized,
+      isValid: true,
+      isDuplicate: true,
+      errorCode: 'DUPLICATE_HOLDING_ROW',
+      errorMessage: 'Row appears to be an existing holding record',
+    };
+  }
+
+  // Check if this is an update to an existing lot (same identity, different quantity)
+  if (params.existingByIdentity) {
+    const existingLot = params.existingByIdentity.get(holdingLotIdentityKey(normalized));
+    if (existingLot && existingLot.quantity !== normalized.quantity) {
+      return {
+        rowNumber: params.rowNumber,
+        rowPayload: params.row,
+        normalized,
+        isValid: true,
+        isDuplicate: false,
+        errorCode: 'LOT_QUANTITY_CHANGED',
+        errorMessage: `Lot quantity changed from ${existingLot.quantity} to ${normalized.quantity}`,
+      };
+    }
+  }
 
   return {
     rowNumber: params.rowNumber,
     rowPayload: params.row,
     normalized,
     isValid: true,
-    isDuplicate: duplicate,
-    errorCode: duplicate ? 'DUPLICATE_HOLDING_ROW' : undefined,
-    errorMessage: duplicate ? 'Row appears to be an existing holding record' : undefined,
+    isDuplicate: false,
   };
 }
 
@@ -580,6 +659,11 @@ function isDuplicateHolding(candidate: ProviderHoldingRecord, existing: Provider
 
 function holdingCompositeKey(row: ProviderHoldingRecord): string {
   return [row.securityId, row.actionType, row.quantity, row.actionDate, row.costBasis].join('|');
+}
+
+/** Lot identity without quantity — used for matching lots across re-imports where quantity may change */
+function holdingLotIdentityKey(row: ProviderHoldingRecord): string {
+  return [row.securityId, row.actionType, row.actionDate, row.costBasis].join('|');
 }
 
 function parseCsv(csvText: string): Record<string, string>[] {
