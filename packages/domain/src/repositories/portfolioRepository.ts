@@ -8,6 +8,7 @@ import {
   ProviderSymbolMapping,
   ProviderHoldingRecord,
   RawImportRow,
+  TickerMapping,
   TradeTransaction,
 } from '../types';
 
@@ -22,6 +23,7 @@ const KEYS = {
   trades: 'portfolio-trades.v1',
   holdingRecords: 'portfolio-holding-records.v1',
   lots: 'portfolio-lots.v1',
+  tickerMappings: 'ticker-mappings.v1',
 };
 
 export interface JsonStore {
@@ -61,6 +63,9 @@ export interface PortfolioRepository {
   listTradesByAccountSymbol(accountId: string, symbol: string): Promise<TradeTransaction[]>;
   replaceLots(lots: PositionLot[]): Promise<void>;
   listLotsByAccountSymbol(accountId: string, symbol: string): Promise<PositionLot[]>;
+  upsertTickerMapping(mapping: TickerMapping): Promise<void>;
+  getTickerMapping(securityId: string): Promise<TickerMapping | null>;
+  listTickerMappings(): Promise<TickerMapping[]>;
 }
 
 export class LocalPortfolioRepository implements PortfolioRepository {
@@ -253,6 +258,27 @@ export class LocalPortfolioRepository implements PortfolioRepository {
   async listLotsByAccountSymbol(accountId: string, symbol: string): Promise<PositionLot[]> {
     const list = await this.getList<PositionLot>(KEYS.lots);
     return list.filter((item) => item.accountId === accountId && item.symbol === symbol);
+  }
+
+  async upsertTickerMapping(mapping: TickerMapping): Promise<void> {
+    const list = await this.getList<TickerMapping>(KEYS.tickerMappings);
+    const index = list.findIndex((item) => item.securityId === mapping.securityId);
+    if (index < 0) {
+      await this.setList(KEYS.tickerMappings, [mapping, ...list]);
+    } else {
+      const copy = [...list];
+      copy[index] = mapping;
+      await this.setList(KEYS.tickerMappings, copy);
+    }
+  }
+
+  async getTickerMapping(securityId: string): Promise<TickerMapping | null> {
+    const list = await this.getList<TickerMapping>(KEYS.tickerMappings);
+    return list.find((item) => item.securityId === securityId) ?? null;
+  }
+
+  async listTickerMappings(): Promise<TickerMapping[]> {
+    return this.getList<TickerMapping>(KEYS.tickerMappings);
   }
 
   private async getList<T>(key: string): Promise<T[]> {

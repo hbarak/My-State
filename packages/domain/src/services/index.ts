@@ -7,3 +7,6 @@ export * from './FinancialStateService';
 export * from './ImportRunQueryService';
 export * from './SecurityLotQueryService';
 export * from './aggregateHoldingLots';
+export * from './MarketPriceService';
+export * from './TickerResolverService';
+export * from './PortfolioPriceEnricher';

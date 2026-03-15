@@ -6,3 +6,4 @@ export * from './sync';
 export * from './provider';
 export * from './portfolio';
 export * from './financialState';
+export * from './marketPrice';
