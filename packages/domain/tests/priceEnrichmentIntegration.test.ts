@@ -267,7 +267,9 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     const ilsCurrency = delek.currency;
 
     // USD position (currency normalized from דולר to USD at import)
+    // USD values must NOT be divided by 100 (agorot conversion is ILS-only)
     const apple = enriched.positions.find((p) => p.securityId === '8888888')!;
+    expect(apple.totalCost).toBe(3000); // 20 * 150 (not 20 * 1.50)
     expect(apple.currentPrice).toBe(200);
     expect(apple.currentValue).toBe(4000); // 20 * 200
     const usdCurrency = apple.currency;

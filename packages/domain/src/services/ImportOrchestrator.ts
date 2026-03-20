@@ -626,9 +626,9 @@ function normalizeHoldingRow(
   const normalizedCurrency = normalizeCurrencyCode(currency);
 
   // BUG-03: Agorot conversion is opt-in per mapping profile (monetaryUnit: 'agorot').
-  // Psagot reports ILS monetary values in agorot (1/100 ILS). Other brokers may report
-  // in whole shekels. The flag prevents silent corruption when onboarding a second ILS provider.
-  const isAgorot = profile.parsingRules?.monetaryUnit === 'agorot';
+  // Psagot reports ILS monetary values in agorot (1/100 ILS) but USD values in whole
+  // dollars. Only convert when the row's currency is ש"ח (ILS).
+  const isAgorot = profile.parsingRules?.monetaryUnit === 'agorot' && currency === 'ש"ח';
   if (isAgorot) {
     costBasis = costBasis / 100;
     if (typeof currentPrice === 'number') {
