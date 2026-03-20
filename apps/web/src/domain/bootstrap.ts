@@ -7,7 +7,6 @@ import { TickerResolverService } from '../../../../packages/domain/src/services/
 import { PortfolioPriceEnricher } from '../../../../packages/domain/src/services/PortfolioPriceEnricher';
 import { BrowserLocalStorageJsonStore } from '../../../../packages/domain/src/stores/jsonStores';
 import { TelemetryService, ConsoleTelemetrySink } from '../../../../packages/domain/src/telemetry';
-import type { EnrichedHoldingsState } from '../../../../packages/domain/src/types/marketPrice';
 import { YahooFinancePriceFetcher } from '../adapters/YahooFinancePriceFetcher';
 import { YahooFinanceTickerSearcher } from '../adapters/YahooFinanceTickerSearcher';
 
@@ -20,21 +19,17 @@ const tickerSearcher = new YahooFinanceTickerSearcher();
 const tickerResolver = new TickerResolverService(repository, tickerSearcher);
 const priceService = new MarketPriceService(priceFetcher);
 const priceEnricher = new PortfolioPriceEnricher(tickerResolver, priceService);
-const financialStateService = new FinancialStateService(repository);
-
-const enrichedHoldings = {
-  async getEnrichedHoldings(params: { providerId: string }): Promise<EnrichedHoldingsState> {
-    const holdingsState = await financialStateService.getTotalHoldingsState(params);
-    return priceEnricher.enrich(holdingsState);
-  },
-};
+const financialStateService = new FinancialStateService(repository, priceEnricher);
 
 export const domain = {
   repository,
   importService: new PortfolioImportService(repository, telemetry),
   financialStateService,
   securityLotQueryService: new SecurityLotQueryService(repository),
-  enrichedHoldings,
+  enrichedHoldings: {
+    getEnrichedHoldings: (params: { providerId: string }) =>
+      financialStateService.getEnrichedHoldings(params),
+  },
 };
 
 export const SPRINT1_PROVIDER_ID = 'provider-web-demo';

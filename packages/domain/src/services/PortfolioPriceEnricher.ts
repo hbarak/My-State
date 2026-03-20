@@ -111,7 +111,7 @@ export class PortfolioPriceEnricher {
       unavailable: enrichedPositions.filter((p) => p.priceSource === 'unavailable').length,
     };
 
-    const insufficientData = enrichedPositions.some((p) => p.priceSource !== 'live');
+    const insufficientData = enrichedPositions.some((p) => p.priceSource === 'unavailable');
 
     return {
       stateType: 'enriched_holdings',
@@ -155,8 +155,6 @@ function enrichPosition(
   } else if (staleEntry && staleEntry !== liveEntry) {
     priceSource = 'stale';
     currentPrice = staleEntry.price;
-    livePrice = staleEntry.price;
-    livePriceCurrency = staleEntry.currency;
   } else if (typeof pos.currentPrice === 'number' && pos.currentPrice > 0) {
     priceSource = 'csv';
     currentPrice = pos.currentPrice;

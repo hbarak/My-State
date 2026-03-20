@@ -166,7 +166,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     expect(enriched.priceSummary.unavailable).toBe(0);
   });
 
-  it('missing ticker: one resolves, one does not — mixed display, insufficientData = true', async () => {
+  it('missing ticker: one resolves, one does not — mixed display, insufficientData = false', async () => {
     const { importService, holdingsBuilder, enricher, seed } = makeIntegrationFixture({
       searchResults: {
         'דלק קבוצה': 'DLEKG.TA',
@@ -188,7 +188,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     const holdings = await holdingsBuilder.build({ providerId: PROVIDER_ID });
     const enriched = await enricher.enrich(holdings);
 
-    expect(enriched.insufficientData).toBe(true);
+    expect(enriched.insufficientData).toBe(false);
 
     const delek = enriched.positions.find((p) => p.securityId === '1084128')!;
     expect(delek.priceSource).toBe('live');
@@ -203,7 +203,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     expect(enriched.priceSummary.csv).toBe(1);
   });
 
-  it('price fetch failure: ticker resolved but Yahoo fetch fails — cost-basis-only', async () => {
+  it('price fetch failure: ticker resolved but Yahoo fetch fails — CSV fallback, insufficientData = false', async () => {
     const { importService, holdingsBuilder, enricher, seed } = makeIntegrationFixture({
       searchResults: {
         'דלק קבוצה': 'DLEKG.TA',
@@ -224,7 +224,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     const holdings = await holdingsBuilder.build({ providerId: PROVIDER_ID });
     const enriched = await enricher.enrich(holdings);
 
-    expect(enriched.insufficientData).toBe(true);
+    expect(enriched.insufficientData).toBe(false);
 
     // Both positions should fall back — delek has CSV price, leumi has CSV price
     for (const pos of enriched.positions) {

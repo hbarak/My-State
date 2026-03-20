@@ -144,7 +144,7 @@ describe('PortfolioPriceEnricher', () => {
     expect(result.priceSummary.unavailable).toBe(0);
   });
 
-  it('falls back to CSV price when ticker is unresolved — insufficientData = true', async () => {
+  it('falls back to CSV price when ticker is unresolved — insufficientData = false', async () => {
     const positions = [
       makePosition({ securityId: '1001', totalCost: 5000, quantity: 100, currentPrice: 45 }),
     ];
@@ -157,7 +157,7 @@ describe('PortfolioPriceEnricher', () => {
 
     const result = await enricher.enrich(state);
 
-    expect(result.insufficientData).toBe(true);
+    expect(result.insufficientData).toBe(false);
     const p = result.positions[0];
     expect(p.priceSource).toBe('csv');
     expect(p.currentPrice).toBe(45);

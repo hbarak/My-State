@@ -49,6 +49,11 @@ export class TickerResolverService {
       return cached;
     }
 
+    // Skip auto-resolve for empty/garbage names
+    if (!sec.securityName?.trim()) {
+      return null;
+    }
+
     // Auto-resolve via searcher
     let ticker: string | null;
     try {
