@@ -567,7 +567,7 @@ function normalizeTradeRow(
       quantity,
       price,
       fees,
-      currency,
+      currency: normalizeCurrencyCode(currency),
       tradeAt,
       externalTradeId,
       note,
@@ -605,8 +605,8 @@ function normalizeHoldingRow(
   }
 
   const quantity = parseLocalizedNumber(quantityRaw);
-  const costBasis = parseLocalizedNumber(costBasisRaw);
-  const currentPrice = currentPriceRaw ? parseLocalizedNumber(currentPriceRaw) : undefined;
+  let costBasis = parseLocalizedNumber(costBasisRaw);
+  let currentPrice = currentPriceRaw ? parseLocalizedNumber(currentPriceRaw) : undefined;
   const actionDate = parseDayMonthYearDate(actionDateRaw);
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -622,6 +622,20 @@ function normalizeHoldingRow(
     return { errorCode: 'INVALID_CURRENT_PRICE', errorMessage: `Invalid current price: ${currentPriceRaw}` };
   }
 
+  // BUG-03b: Normalize Hebrew currency names to ISO codes at import time.
+  const normalizedCurrency = normalizeCurrencyCode(currency);
+
+  // BUG-03: Agorot conversion is opt-in per mapping profile (monetaryUnit: 'agorot').
+  // Psagot reports ILS monetary values in agorot (1/100 ILS). Other brokers may report
+  // in whole shekels. The flag prevents silent corruption when onboarding a second ILS provider.
+  const isAgorot = profile.parsingRules?.monetaryUnit === 'agorot';
+  if (isAgorot) {
+    costBasis = costBasis / 100;
+    if (typeof currentPrice === 'number') {
+      currentPrice = currentPrice / 100;
+    }
+  }
+
   return {
     record: {
       securityId,
@@ -629,7 +643,7 @@ function normalizeHoldingRow(
       actionType,
       quantity,
       costBasis,
-      currency,
+      currency: normalizedCurrency,
       actionDate,
       currentPrice,
     },
@@ -764,6 +778,18 @@ function hashRow(row: Record<string, string>): string {
   }
 
   return (hash >>> 0).toString(16);
+}
+
+/** BUG-03b: Normalize Hebrew currency names to ISO codes at import time.
+ *  Intentionally covers only ILS and USD — additional codes (EUR/אירו, GBP)
+ *  should be added when a provider using them is onboarded. */
+const CURRENCY_NORMALIZATION_MAP: Record<string, string> = {
+  'ש"ח': 'ILS',
+  'דולר': 'USD',
+};
+
+function normalizeCurrencyCode(raw: string): string {
+  return CURRENCY_NORMALIZATION_MAP[raw] ?? raw;
 }
 
 function validateRequiredMappings(profile: ProviderMappingProfile): void {

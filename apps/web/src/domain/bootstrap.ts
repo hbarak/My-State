@@ -132,6 +132,7 @@ export async function ensureSprintOnePreviewSetup(): Promise<void> {
     },
     requiredCanonicalFields: ['securityId', 'securityName', 'actionType', 'quantity', 'costBasis', 'currency', 'actionDate'],
     optionalCanonicalFields: ['currentPrice'],
+    parsingRules: { monetaryUnit: 'agorot' },
     createdAt: now,
     updatedAt: now,
   });

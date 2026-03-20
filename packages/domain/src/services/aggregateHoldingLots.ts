@@ -23,7 +23,7 @@ export function aggregateHoldingLots(lots: readonly ProviderHoldingRecord[]): Ag
 
   for (const lot of lots) {
     totalQuantity += lot.quantity;
-    totalCost += lot.costBasis;
+    totalCost += lot.costBasis * lot.quantity;
 
     if (lot.actionDate > latestActionDate) {
       latestActionDate = lot.actionDate;

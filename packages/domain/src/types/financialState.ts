@@ -16,9 +16,9 @@ export interface TotalHoldingsPosition {
   currency: CurrencyCode;
   /** Total quantity across all lots for this security */
   quantity: number;
-  /** Total cost basis across all lots (sum of costBasis * quantity per lot / total quantity = weighted avg) */
+  /** Weighted average cost per unit (totalCost / quantity) */
   costBasis: number;
-  /** Total cost (sum of costBasis across all lots, before averaging) */
+  /** Total cost across all lots (sum of costBasis * quantity per lot) */
   totalCost: number;
   currentPrice?: number;
   actionDate: ISODate;
