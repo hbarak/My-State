@@ -1,0 +1,8 @@
+{
+  "name": "@my-stocks/mobile",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "echo \"Initialize mobile app next (Expo).\""
+  }
+}
