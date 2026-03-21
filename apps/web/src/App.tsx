@@ -88,6 +88,12 @@ export default function App(): JSX.Element {
     setSelectedAccountId(account.id);
   };
 
+  const onRenameAccount = async (accountId: string, name: string): Promise<void> => {
+    await domain.accountService.updateAccount(accountId, { name });
+    const updated = await domain.accountService.listByProvider(SPRINT1_PROVIDER_ID);
+    setAccounts(updated);
+  };
+
   const onFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -292,6 +298,7 @@ export default function App(): JSX.Element {
               selectedAccountId={selectedAccountId}
               onSelect={setSelectedAccountId}
               onCreate={onCreateAccount}
+              onRename={onRenameAccount}
               disabled={!canUpload}
             />
           </section>
