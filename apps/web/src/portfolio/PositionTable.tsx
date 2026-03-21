@@ -86,11 +86,11 @@ function PositionRow({
         <td>{position.securityName}</td>
         <td>{position.ticker ?? '—'}</td>
         <td className="num">{formatNum(position.quantity)}</td>
-        <td className="num">{formatNum(position.costBasis)}</td>
-        <td className="num">{position.currentPrice !== undefined ? formatNum(position.currentPrice) : '—'}</td>
-        <td className="num">{position.currentValue !== undefined ? formatNum(position.currentValue) : '—'}</td>
+        <td className="num">{formatMoney(position.costBasis, position.currency)}</td>
+        <td className="num">{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
+        <td className="num">{position.currentValue !== undefined ? formatMoney(position.currentValue, position.currency) : '—'}</td>
         <td className={`num ${gainClass(position.unrealizedGain)}`}>
-          {position.unrealizedGain !== undefined ? formatSigned(position.unrealizedGain) : '—'}
+          {position.unrealizedGain !== undefined ? formatSignedMoney(position.unrealizedGain, position.currency) : '—'}
         </td>
         <td className={`num ${gainClass(position.unrealizedGain)}`}>
           {position.unrealizedGainPct !== undefined ? formatPct(position.unrealizedGainPct) : '—'}
@@ -129,9 +129,24 @@ function formatNum(value: number): string {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function formatSigned(value: number): string {
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  ILS: '\u20AA',
+  USD: '$',
+  EUR: '\u20AC',
+  GBP: '\u00A3',
+};
+
+function currencySymbol(currency: string): string {
+  return CURRENCY_SYMBOLS[currency] ?? currency + ' ';
+}
+
+function formatMoney(value: number, currency: string): string {
+  return currencySymbol(currency) + formatNum(value);
+}
+
+function formatSignedMoney(value: number, currency: string): string {
   const prefix = value > 0 ? '+' : '';
-  return prefix + formatNum(value);
+  return prefix + formatMoney(value, currency);
 }
 
 function formatPct(value: number): string {

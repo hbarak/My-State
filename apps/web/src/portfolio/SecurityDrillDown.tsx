@@ -57,16 +57,16 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
 
           <div className="drilldown-summary">
             <span>Qty: {formatNum(position.quantity)}</span>
-            <span>Avg Cost: {formatNum(position.costBasis)}</span>
+            <span>Avg Cost: {formatMoney(position.costBasis, position.currency)}</span>
             {position.currentPrice !== undefined && (
-              <span>Price: {formatNum(position.currentPrice)}</span>
+              <span>Price: {formatMoney(position.currentPrice, position.currency)}</span>
             )}
             {position.currentValue !== undefined && (
-              <span>Value: {formatNum(position.currentValue)}</span>
+              <span>Value: {formatMoney(position.currentValue, position.currency)}</span>
             )}
             {position.unrealizedGain !== undefined && (
               <span className={gainClass(position.unrealizedGain)}>
-                Gain: {formatSigned(position.unrealizedGain)}
+                Gain: {formatSignedMoney(position.unrealizedGain, position.currency)}
               </span>
             )}
           </div>
@@ -81,7 +81,7 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
           )}
 
           {fetchState === 'ready' && securityPosition && (
-            <LotTable lots={securityPosition.lots} livePrice={position.currentPrice} />
+            <LotTable lots={securityPosition.lots} livePrice={position.currentPrice} currency={position.currency} />
           )}
 
           {fetchState === 'ready' && !securityPosition && (
@@ -96,9 +96,11 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
 function LotTable({
   lots,
   livePrice,
+  currency,
 }: {
   readonly lots: readonly SecurityLot[];
   readonly livePrice: number | undefined;
+  readonly currency: string;
 }): JSX.Element {
   return (
     <table className="lot-table">
@@ -124,10 +126,10 @@ function LotTable({
               <td>{lot.actionDate}</td>
               <td>{lot.actionType}</td>
               <td className="num">{formatNum(lot.quantity)}</td>
-              <td className="num">{formatNum(lot.costBasis)}</td>
-              <td className="num">{lotValue !== undefined ? formatNum(lotValue) : '—'}</td>
+              <td className="num">{formatMoney(lot.costBasis, currency)}</td>
+              <td className="num">{lotValue !== undefined ? formatMoney(lotValue, currency) : '—'}</td>
               <td className={`num ${gainClass(lotGain)}`}>
-                {lotGain !== undefined ? formatSigned(lotGain) : '—'}
+                {lotGain !== undefined ? formatSignedMoney(lotGain, currency) : '—'}
               </td>
             </tr>
           );
@@ -148,7 +150,22 @@ function formatNum(value: number): string {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function formatSigned(value: number): string {
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  ILS: '\u20AA',
+  USD: '$',
+  EUR: '\u20AC',
+  GBP: '\u00A3',
+};
+
+function currencySymbol(currency: string): string {
+  return CURRENCY_SYMBOLS[currency] ?? currency + ' ';
+}
+
+function formatMoney(value: number, currency: string): string {
+  return currencySymbol(currency) + formatNum(value);
+}
+
+function formatSignedMoney(value: number, currency: string): string {
   const prefix = value > 0 ? '+' : '';
-  return prefix + formatNum(value);
+  return prefix + formatMoney(value, currency);
 }
