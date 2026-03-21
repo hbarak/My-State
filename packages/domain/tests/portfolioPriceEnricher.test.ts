@@ -283,6 +283,46 @@ describe('PortfolioPriceEnricher', () => {
     expect(result.priceSummary.total).toBe(0);
   });
 
+  it('GAP-01: stale cache fallback — second fetch fails, uses cached price from first fetch', async () => {
+    const positions = [
+      makePosition({ securityId: '1001', totalCost: 5000, quantity: 100 }),
+    ];
+    const state = makeHoldingsState(positions);
+
+    let callCount = 0;
+    const failOnSecondCall = {
+      async getPrices(requests: readonly PriceRequest[]): Promise<MarketPriceResult> {
+        callCount++;
+        if (callCount === 1) {
+          const prices = new Map<string, PriceEntry>();
+          prices.set('1001', { price: 60, currency: 'ILS' });
+          return { fetchedAt: '2026-03-15T10:01:00Z', prices, errors: [] };
+        }
+        throw new Error('Yahoo Finance unavailable');
+      },
+    };
+
+    const enricher = new PortfolioPriceEnricher(
+      stubResolver({ mappings: { '1001': makeMapping('1001', 'AAA.TA') } }),
+      failOnSecondCall,
+    );
+
+    // First call — live price succeeds, populates stale cache
+    const first = await enricher.enrich(state);
+    expect(first.positions[0].priceSource).toBe('live');
+    expect(first.positions[0].currentPrice).toBe(60);
+
+    // Second call — fetch throws, falls back to stale cache
+    const second = await enricher.enrich(state);
+    expect(second.positions[0].priceSource).toBe('stale');
+    expect(second.positions[0].currentPrice).toBe(60);
+    expect(second.positions[0].livePrice).toBeUndefined();
+    expect(second.positions[0].livePriceCurrency).toBeUndefined();
+    expect(second.priceSummary.stale).toBe(1);
+    expect(second.priceSummary.live).toBe(0);
+    expect(second.insufficientData).toBe(false);
+  });
+
   it('returns new object — original TotalHoldingsState is not mutated (immutability)', async () => {
     const positions = [
       makePosition({ securityId: '1001', totalCost: 5000, quantity: 100, currentPrice: 45 }),
