@@ -67,18 +67,18 @@
 
 .card h2 {
   margin: 0 0 var(--space-3);
-  font-size: 22px;
+  font-size: var(--font-size-xl);
 }
 
 .card h3 {
   margin: var(--space-1) 0 var(--space-2);
-  font-size: 15px;
+  font-size: var(--font-size-md);
   color: var(--color-text-primary);
 }
 
 .uploadLayout {
   display: grid;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .fieldLabel {
@@ -92,7 +92,7 @@
   box-sizing: border-box;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  padding: 10px;
+  padding: var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
 }
@@ -117,8 +117,8 @@
 
 .summaryBox {
   border: 1px solid var(--color-border-strong);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
   background: var(--color-bg-secondary);
 }
 
@@ -129,8 +129,8 @@
 }
 
 .summaryBox p {
-  margin: 6px 0 0;
-  font-size: 22px;
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
@@ -138,7 +138,7 @@
 .reasonList,
 .rowList {
   margin: 0;
-  padding-left: 20px;
+  padding-left: var(--space-5);
   display: grid;
   gap: var(--space-1);
 }

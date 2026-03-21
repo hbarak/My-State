@@ -89,7 +89,7 @@ export default function App(): JSX.Element {
   };
 
   const onRenameAccount = async (accountId: string, name: string): Promise<void> => {
-    await domain.accountService.updateAccount(accountId, { name });
+    await domain.accountService.updateAccount(SPRINT1_PROVIDER_ID, accountId, { name });
     const updated = await domain.accountService.listByProvider(SPRINT1_PROVIDER_ID);
     setAccounts(updated);
   };

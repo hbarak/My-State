@@ -3,13 +3,13 @@
 }
 
 .chart h3 {
-  margin: 0 0 10px;
-  font-size: 15px;
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
 }
 
 .bars {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .row {
@@ -39,17 +39,17 @@
 }
 
 .barTrack {
-  height: 14px;
+  height: var(--font-size-base);
   background: var(--color-border);
-  border-radius: 7px;
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
 
 .barFill {
   height: 100%;
   background: var(--color-brand);
-  border-radius: 7px;
-  transition: width 0.3s ease;
+  border-radius: var(--radius-full);
+  transition: width var(--transition-fast) ease;
 }
 
 .pct {
@@ -59,7 +59,7 @@
 }
 
 .footnote {
-  margin-top: 6px;
+  margin-top: var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
