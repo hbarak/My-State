@@ -39,3 +39,22 @@ img {
   display: block;
   max-width: 100%;
 }
+
+details {
+  margin-top: var(--space-3);
+}
+
+summary {
+  cursor: pointer;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+}
+
+summary:hover {
+  color: var(--color-brand);
+}
+
+button {
+  font-family: inherit;
+}

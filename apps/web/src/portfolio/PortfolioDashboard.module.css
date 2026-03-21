@@ -13,7 +13,14 @@
 .empty,
 .error {
   text-align: center;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-10) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+}
+
+.header h2 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
 }
 
 .card {

@@ -7,25 +7,37 @@
   font-size: 15px;
 }
 
+/* Mobile-first: base is compact */
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--font-size-base);
+  font-size: 12px;
 }
 
 .table th,
 .table td {
-  padding: var(--space-2) 10px;
+  padding: 6px;
   text-align: left;
   border-bottom: 1px solid var(--color-border);
 }
 
 .table th {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+@media (min-width: 640px) {
+  .table {
+    font-size: var(--font-size-base);
+  }
+
+  .table th,
+  .table td {
+    padding: var(--space-2) 10px;
+  }
 }
 
 .num {
@@ -65,15 +77,4 @@
 
 .gainNegative {
   color: var(--color-loss);
-}
-
-@media (max-width: 640px) {
-  .table {
-    font-size: 12px;
-  }
-
-  .table th,
-  .table td {
-    padding: 6px;
-  }
 }
