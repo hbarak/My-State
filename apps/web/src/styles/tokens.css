@@ -1,0 +1,75 @@
+:root {
+  /* ── Colors: Neutral (Slate) ── */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8fafc;        /* slate-50 */
+  --color-bg-tertiary: #f1f5f9;         /* slate-100 */
+  --color-border: #e2e8f0;              /* slate-200 */
+  --color-border-strong: #cbd5e1;       /* slate-300 */
+  --color-text-primary: #0f172a;        /* slate-900 */
+  --color-text-secondary: #334155;      /* slate-700 */
+  --color-text-muted: #64748b;          /* slate-500 */
+  --color-text-faint: #94a3b8;          /* slate-400 */
+
+  /* ── Colors: Brand (Blue) ── */
+  --color-brand: #0284c7;               /* sky-600 */
+  --color-brand-hover: #0369a1;         /* sky-700 */
+  --color-brand-light: #e0f2fe;         /* sky-100 */
+  --color-brand-dark: #0c4a6e;          /* sky-900 */
+
+  /* ── Colors: Semantic ── */
+  --color-success-bg: #dcfce7;
+  --color-success-text: #166534;
+  --color-warning-bg: #fef9c3;
+  --color-warning-text: #854d0e;
+  --color-error-bg: #fee2e2;
+  --color-error-text: #991b1b;
+  --color-gain: #166534;
+  --color-loss: #991b1b;
+
+  /* ── Typography ── */
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 32px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+
+  /* ── Spacing ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Radii ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* ── Layout ── */
+  --container-max: 960px;
+  --container-wide: 1120px;
+}
