@@ -2,11 +2,12 @@ import type { PortfolioRepository } from '../repositories';
 import { FinancialStateApi } from '../api/financialStateApi';
 import type { NetWorthState, TotalHoldingsState } from '../types';
 import type { EnrichedHoldingsState } from '../types/marketPrice';
-import type { PortfolioPriceEnricher } from './PortfolioPriceEnricher';
+import type { PortfolioPriceEnricher, StalePriceCache } from './PortfolioPriceEnricher';
 
 export class FinancialStateService {
   private readonly api: FinancialStateApi;
   private enricher?: PortfolioPriceEnricher;
+  private priceCache: StalePriceCache = { entries: new Map() };
 
   constructor(repository: PortfolioRepository, enricher?: PortfolioPriceEnricher) {
     this.api = new FinancialStateApi(repository);
@@ -26,7 +27,9 @@ export class FinancialStateService {
       throw new Error('PortfolioPriceEnricher not configured. Call setEnricher() or pass enricher to constructor.');
     }
     const holdingsState = await this.getTotalHoldingsState(params);
-    return this.enricher.enrich(holdingsState);
+    const result = await this.enricher.enrich(holdingsState, this.priceCache);
+    this.priceCache = result.updatedCache;
+    return result.state;
   }
 
   async getNetWorthState(params?: { providerId?: string }): Promise<NetWorthState> {

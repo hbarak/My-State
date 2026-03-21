@@ -35,7 +35,7 @@ export interface JsonStore {
 
 export interface PortfolioRepository {
   upsertAccount(account: Account): Promise<void>;
-  getAccount(accountId: string): Promise<Account | null>;
+  getAccount(providerId: string, accountId: string): Promise<Account | null>;
   listAccountsByProvider(providerId: string): Promise<Account[]>;
   upsertProvider(provider: Provider): Promise<void>;
   getProviders(): Promise<Provider[]>;
@@ -64,6 +64,7 @@ export interface PortfolioRepository {
   listHoldingRecordsByAccount(providerId: string, accountId: string): Promise<ProviderHoldingRecord[]>;
   listHoldingRecordsByImportRun(importRunId: string): Promise<ProviderHoldingRecord[]>;
   listTradesByProvider(providerId: string): Promise<TradeTransaction[]>;
+  listTradesByAccount(providerId: string, accountId: string): Promise<TradeTransaction[]>;
   listTradesByIntegration(providerIntegrationId: string): Promise<TradeTransaction[]>;
   listTradesByImportRun(importRunId: string): Promise<TradeTransaction[]>;
   listTradesByAccountSymbol(accountId: string, symbol: string): Promise<TradeTransaction[]>;
@@ -88,9 +89,9 @@ export class LocalPortfolioRepository implements PortfolioRepository {
     await this.setList(KEYS.accounts, next);
   }
 
-  async getAccount(accountId: string): Promise<Account | null> {
+  async getAccount(providerId: string, accountId: string): Promise<Account | null> {
     const list = await this.getList<Account>(KEYS.accounts);
-    return list.find((item) => item.id === accountId) ?? null;
+    return list.find((item) => item.providerId === providerId && item.id === accountId) ?? null;
   }
 
   async listAccountsByProvider(providerId: string): Promise<Account[]> {
@@ -270,6 +271,11 @@ export class LocalPortfolioRepository implements PortfolioRepository {
   async listTradesByProvider(providerId: string): Promise<TradeTransaction[]> {
     const list = await this.getList<TradeTransaction>(KEYS.trades);
     return list.filter((item) => item.providerId === providerId && !item.deletedAt);
+  }
+
+  async listTradesByAccount(providerId: string, accountId: string): Promise<TradeTransaction[]> {
+    const list = await this.getList<TradeTransaction>(KEYS.trades);
+    return list.filter((item) => item.providerId === providerId && item.accountId === accountId && !item.deletedAt);
   }
 
   async listTradesByIntegration(providerIntegrationId: string): Promise<TradeTransaction[]> {

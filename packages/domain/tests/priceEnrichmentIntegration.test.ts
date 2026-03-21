@@ -145,7 +145,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     expect(holdings.hardFactOnly).toBe(true);
 
     // Enrich with live prices
-    const enriched = await enricher.enrich(holdings);
+    const { state: enriched } = await enricher.enrich(holdings);
     expect(enriched.stateType).toBe('enriched_holdings');
     expect(enriched.hardFactOnly).toBe(false);
     expect(enriched.basedOn).toBe(holdings.snapshotId);
@@ -186,7 +186,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     });
 
     const holdings = await holdingsBuilder.build({ providerId: PROVIDER_ID });
-    const enriched = await enricher.enrich(holdings);
+    const { state: enriched } = await enricher.enrich(holdings);
 
     expect(enriched.insufficientData).toBe(false);
 
@@ -222,7 +222,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     });
 
     const holdings = await holdingsBuilder.build({ providerId: PROVIDER_ID });
-    const enriched = await enricher.enrich(holdings);
+    const { state: enriched } = await enricher.enrich(holdings);
 
     expect(enriched.insufficientData).toBe(false);
 
@@ -256,7 +256,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     });
 
     const holdings = await holdingsBuilder.build({ providerId: PROVIDER_ID });
-    const enriched = await enricher.enrich(holdings);
+    const { state: enriched } = await enricher.enrich(holdings);
 
     expect(enriched.insufficientData).toBe(false);
 

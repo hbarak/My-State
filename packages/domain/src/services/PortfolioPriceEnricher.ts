@@ -17,30 +17,40 @@ export interface PriceService {
   getPrices(requests: readonly PriceRequest[]): Promise<MarketPriceResult>;
 }
 
-export class PortfolioPriceEnricher {
-  private readonly stalePriceCache = new Map<string, PriceEntry>();
+export interface StalePriceCache {
+  readonly entries: ReadonlyMap<string, PriceEntry>;
+}
 
+export interface EnrichResult {
+  readonly state: EnrichedHoldingsState;
+  readonly updatedCache: StalePriceCache;
+}
+
+export class PortfolioPriceEnricher {
   constructor(
     private readonly tickerResolver: TickerResolver,
     private readonly priceService: PriceService,
   ) {}
 
-  async enrich(state: TotalHoldingsState): Promise<EnrichedHoldingsState> {
+  async enrich(state: TotalHoldingsState, cache: StalePriceCache = { entries: new Map() }): Promise<EnrichResult> {
     const generatedAt = new Date().toISOString();
 
     if (state.positions.length === 0) {
       return {
-        stateType: 'enriched_holdings',
-        basedOn: state.snapshotId,
-        generatedAt,
-        hardFactOnly: false,
-        insufficientData: false,
-        positions: [],
-        positionCount: 0,
-        valuationTotalsByCurrency: {},
-        costTotalsByCurrency: {},
-        unrealizedGainTotalsByCurrency: {},
-        priceSummary: { total: 0, live: 0, stale: 0, csv: 0, unavailable: 0 },
+        state: {
+          stateType: 'enriched_holdings',
+          basedOn: state.snapshotId,
+          generatedAt,
+          hardFactOnly: false,
+          insufficientData: false,
+          positions: [],
+          positionCount: 0,
+          valuationTotalsByCurrency: {},
+          costTotalsByCurrency: {},
+          unrealizedGainTotalsByCurrency: {},
+          priceSummary: { total: 0, live: 0, stale: 0, csv: 0, unavailable: 0 },
+        },
+        updatedCache: cache,
       };
     }
 
@@ -67,12 +77,14 @@ export class PortfolioPriceEnricher {
       }
     }
 
-    // Update stale cache with successful fetches
+    // Build updated cache with successful fetches (immutable — new Map)
+    const updatedEntries = new Map(cache.entries);
     if (priceResult) {
       for (const [securityId, entry] of priceResult.prices) {
-        this.stalePriceCache.set(securityId, entry);
+        updatedEntries.set(securityId, entry);
       }
     }
+    const updatedCache: StalePriceCache = { entries: updatedEntries };
 
     // 4. Enrich each position
     const enrichedPositions: EnrichedHoldingsPosition[] = state.positions.map((pos) => {
@@ -82,7 +94,7 @@ export class PortfolioPriceEnricher {
         pos,
         mapping ?? null,
         liveEntry ?? null,
-        this.stalePriceCache.get(pos.securityId) ?? null,
+        updatedEntries.get(pos.securityId) ?? null,
         priceResult?.fetchedAt,
       );
     });
@@ -114,18 +126,21 @@ export class PortfolioPriceEnricher {
     const insufficientData = enrichedPositions.some((p) => p.priceSource === 'unavailable');
 
     return {
-      stateType: 'enriched_holdings',
-      basedOn: state.snapshotId,
-      generatedAt,
-      pricesFetchedAt: priceResult?.fetchedAt,
-      hardFactOnly: false,
-      insufficientData,
-      positions: enrichedPositions,
-      positionCount: enrichedPositions.length,
-      valuationTotalsByCurrency: valuationTotals,
-      costTotalsByCurrency: costTotals,
-      unrealizedGainTotalsByCurrency: gainTotals,
-      priceSummary: summary,
+      state: {
+        stateType: 'enriched_holdings',
+        basedOn: state.snapshotId,
+        generatedAt,
+        pricesFetchedAt: priceResult?.fetchedAt,
+        hardFactOnly: false,
+        insufficientData,
+        positions: enrichedPositions,
+        positionCount: enrichedPositions.length,
+        valuationTotalsByCurrency: valuationTotals,
+        costTotalsByCurrency: costTotals,
+        unrealizedGainTotalsByCurrency: gainTotals,
+        priceSummary: summary,
+      },
+      updatedCache,
     };
   }
 }

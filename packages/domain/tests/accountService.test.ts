@@ -38,7 +38,7 @@ describe('AccountService', () => {
     expect(account.createdAt).toBeDefined();
     expect(account.updatedAt).toBeDefined();
 
-    const retrieved = await service.getById('psagot-joint');
+    const retrieved = await service.getById('provider-psagot', 'psagot-joint');
     expect(retrieved).not.toBeNull();
     expect(retrieved!.id).toBe('psagot-joint');
     expect(retrieved!.name).toBe('Joint Account');
@@ -82,7 +82,7 @@ describe('AccountService', () => {
   it('returns null for non-existent account id', async () => {
     const { service } = makeFixture();
 
-    const result = await service.getById('does-not-exist');
+    const result = await service.getById('any-provider', 'does-not-exist');
     expect(result).toBeNull();
   });
 
@@ -138,7 +138,7 @@ describe('AccountService', () => {
       name: 'Old Name',
     });
 
-    const updated = await service.updateAccount('upd-test', { name: 'New Name' });
+    const updated = await service.updateAccount('prov', 'upd-test', { name: 'New Name' });
 
     expect(updated.name).toBe('New Name');
     expect(updated.id).toBe('upd-test');
@@ -146,7 +146,7 @@ describe('AccountService', () => {
     expect(updated.createdAt).toBe(original.createdAt);
     expect(updated.updatedAt >= original.updatedAt).toBe(true);
 
-    const retrieved = await service.getById('upd-test');
+    const retrieved = await service.getById('prov', 'upd-test');
     expect(retrieved!.name).toBe('New Name');
   });
 
@@ -155,8 +155,22 @@ describe('AccountService', () => {
     const { service } = makeFixture();
 
     await expect(
-      service.updateAccount('ghost', { name: 'Nope' }),
+      service.updateAccount('prov', 'ghost', { name: 'Nope' }),
     ).rejects.toThrow('Account not found: ghost');
+  });
+
+  // A10: getAccount scoped by provider — same account ID under different providers returns correct one
+  it('getById is scoped by provider', async () => {
+    const { service } = makeFixture();
+
+    await service.createAccount({ id: 'default', providerId: 'prov-a', name: 'Provider A Default' });
+    await service.createAccount({ id: 'default', providerId: 'prov-b', name: 'Provider B Default' });
+
+    const a = await service.getById('prov-a', 'default');
+    const b = await service.getById('prov-b', 'default');
+
+    expect(a!.name).toBe('Provider A Default');
+    expect(b!.name).toBe('Provider B Default');
   });
 
   // Regression: existing provider setup tests still pass (no interference from account storage)

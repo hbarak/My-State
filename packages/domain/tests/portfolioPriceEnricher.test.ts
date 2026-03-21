@@ -122,7 +122,7 @@ describe('PortfolioPriceEnricher', () => {
       }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
 
     expect(result.stateType).toBe('enriched_holdings');
     expect(result.hardFactOnly).toBe(false);
@@ -156,7 +156,7 @@ describe('PortfolioPriceEnricher', () => {
       stubPriceService({ prices: {} }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
 
     expect(result.insufficientData).toBe(false);
     const p = result.positions[0];
@@ -182,7 +182,7 @@ describe('PortfolioPriceEnricher', () => {
       stubPriceService({ prices: {}, shouldThrow: new Error('Network down') }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
 
     expect(result.insufficientData).toBe(true);
     for (const p of result.positions) {
@@ -206,7 +206,7 @@ describe('PortfolioPriceEnricher', () => {
       stubPriceService({ prices: { '1001': { price: 60, currency: 'ILS' } } }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
 
     // Original state must be unchanged
     expect(JSON.stringify(state)).toBe(originalStateJson);
@@ -237,7 +237,7 @@ describe('PortfolioPriceEnricher', () => {
       }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
 
     // ILS totals
     expect(result.valuationTotalsByCurrency['ILS']).toBe(6000); // 100 * 60
@@ -261,7 +261,7 @@ describe('PortfolioPriceEnricher', () => {
       stubPriceService({ prices: { '1001': { price: 60, currency: 'ILS' } } }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
 
     expect(result.pricesFetchedAt).toBeDefined();
     const p = result.positions[0];
@@ -276,7 +276,7 @@ describe('PortfolioPriceEnricher', () => {
       stubPriceService({ prices: {} }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
 
     expect(result.positionCount).toBe(0);
     expect(result.positions).toHaveLength(0);
@@ -308,20 +308,20 @@ describe('PortfolioPriceEnricher', () => {
       failOnSecondCall,
     );
 
-    // First call — live price succeeds, populates stale cache
+    // First call — live price succeeds, populates cache
     const first = await enricher.enrich(state);
-    expect(first.positions[0].priceSource).toBe('live');
-    expect(first.positions[0].currentPrice).toBe(60);
+    expect(first.state.positions[0].priceSource).toBe('live');
+    expect(first.state.positions[0].currentPrice).toBe(60);
 
-    // Second call — fetch throws, falls back to stale cache
-    const second = await enricher.enrich(state);
-    expect(second.positions[0].priceSource).toBe('stale');
-    expect(second.positions[0].currentPrice).toBe(60);
-    expect(second.positions[0].livePrice).toBeUndefined();
-    expect(second.positions[0].livePriceCurrency).toBeUndefined();
-    expect(second.priceSummary.stale).toBe(1);
-    expect(second.priceSummary.live).toBe(0);
-    expect(second.insufficientData).toBe(false);
+    // Second call — fetch throws, falls back to stale cache from first call
+    const second = await enricher.enrich(state, first.updatedCache);
+    expect(second.state.positions[0].priceSource).toBe('stale');
+    expect(second.state.positions[0].currentPrice).toBe(60);
+    expect(second.state.positions[0].livePrice).toBeUndefined();
+    expect(second.state.positions[0].livePriceCurrency).toBeUndefined();
+    expect(second.state.priceSummary.stale).toBe(1);
+    expect(second.state.priceSummary.live).toBe(0);
+    expect(second.state.insufficientData).toBe(false);
   });
 
   it('returns new object — original TotalHoldingsState is not mutated (immutability)', async () => {
@@ -340,7 +340,7 @@ describe('PortfolioPriceEnricher', () => {
     );
 
     // Should not throw even with frozen input
-    const result = await enricher.enrich(frozenState as TotalHoldingsState);
+    const { state: result } = await enricher.enrich(frozenState as TotalHoldingsState);
 
     expect(result.positions[0].currentPrice).toBe(60);
     expect(result.stateType).toBe('enriched_holdings');
@@ -358,7 +358,7 @@ describe('PortfolioPriceEnricher', () => {
       stubPriceService({ prices: { '1001': { price: 60, currency: 'ILS' } } }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
 
     expect(result.positions[0].accountIds).toEqual(['acct-a', 'acct-b']);
   });
@@ -375,7 +375,7 @@ describe('PortfolioPriceEnricher', () => {
       stubPriceService({ prices: { '2001': { price: 55, currency: 'ILS' } } }),
     );
 
-    const result = await enricher.enrich(state);
+    const { state: result } = await enricher.enrich(state);
     const enriched = result.positions[0];
 
     expect(enriched.accountIds).toEqual(['joint', 'ira', 'taxable']);

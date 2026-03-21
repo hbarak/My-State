@@ -15,7 +15,7 @@ export class AccountService {
   constructor(private readonly repository: PortfolioRepository) {}
 
   async createAccount(params: CreateAccountParams): Promise<Account> {
-    const existing = await this.repository.getAccount(params.id);
+    const existing = await this.repository.getAccount(params.providerId, params.id);
     const now = new Date().toISOString();
 
     const account: Account = {
@@ -30,8 +30,8 @@ export class AccountService {
     return account;
   }
 
-  async updateAccount(accountId: string, params: UpdateAccountParams): Promise<Account> {
-    const existing = await this.repository.getAccount(accountId);
+  async updateAccount(providerId: string, accountId: string, params: UpdateAccountParams): Promise<Account> {
+    const existing = await this.repository.getAccount(providerId, accountId);
     if (!existing) {
       throw new Error(`Account not found: ${accountId}`);
     }
@@ -46,8 +46,8 @@ export class AccountService {
     return updated;
   }
 
-  async getById(accountId: string): Promise<Account | null> {
-    return this.repository.getAccount(accountId);
+  async getById(providerId: string, accountId: string): Promise<Account | null> {
+    return this.repository.getAccount(providerId, accountId);
   }
 
   async listByProvider(providerId: string): Promise<Account[]> {
