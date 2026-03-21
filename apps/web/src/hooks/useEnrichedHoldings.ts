@@ -22,7 +22,7 @@ export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResu
       setStatus('loading');
       setError(null);
 
-      domain.enrichedHoldings
+      domain.financialStateService
         .getEnrichedHoldings({ providerId })
         .then((result) => {
           if (reqId !== requestIdRef.current) return;

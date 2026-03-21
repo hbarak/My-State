@@ -37,7 +37,7 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
         setError(err instanceof Error ? err.message : 'Failed to load lots');
         setFetchState('error');
       });
-  }, [position.securityId]);
+  }, [position.securityId, providerId]);
 
   useEffect(() => {
     loadLots();

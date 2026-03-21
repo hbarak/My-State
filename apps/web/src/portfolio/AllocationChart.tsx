@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { EnrichedHoldingsPosition } from '../../../../packages/domain/src/types/marketPrice';
 
 interface AllocationChartProps {
@@ -14,30 +15,32 @@ interface AllocationRow {
 }
 
 export function AllocationChart({ positions, currency }: AllocationChartProps): JSX.Element {
-  const filtered = positions.filter(
-    (p) => p.currency === currency && p.currentValue !== undefined,
-  );
+  const { rows, noPriceCount } = useMemo(() => {
+    const filtered = positions.filter(
+      (p) => p.currency === currency && p.currentValue !== undefined,
+    );
+    const totalValue = filtered.reduce((sum, p) => sum + (p.currentValue ?? 0), 0);
+    const computedRows: readonly AllocationRow[] =
+      totalValue === 0
+        ? []
+        : filtered
+            .map((p) => ({
+              securityId: p.securityId,
+              securityName: p.securityName,
+              ticker: p.ticker,
+              value: p.currentValue ?? 0,
+              weight: ((p.currentValue ?? 0) / totalValue) * 100,
+            }))
+            .sort((a, b) => b.weight - a.weight);
+    const computedNoPriceCount = positions.filter(
+      (p) => p.currency === currency && p.currentValue === undefined,
+    ).length;
+    return { rows: computedRows, noPriceCount: computedNoPriceCount };
+  }, [positions, currency]);
 
-  if (filtered.length === 0) {
+  if (rows.length === 0) {
     return <></>;
   }
-
-  const totalValue = filtered.reduce((sum, p) => sum + (p.currentValue ?? 0), 0);
-  if (totalValue === 0) return <></>;
-
-  const rows: readonly AllocationRow[] = filtered
-    .map((p) => ({
-      securityId: p.securityId,
-      securityName: p.securityName,
-      ticker: p.ticker,
-      value: p.currentValue ?? 0,
-      weight: ((p.currentValue ?? 0) / totalValue) * 100,
-    }))
-    .sort((a, b) => b.weight - a.weight);
-
-  const noPriceCount = positions.filter(
-    (p) => p.currency === currency && p.currentValue === undefined,
-  ).length;
 
   return (
     <div className="allocation-chart">

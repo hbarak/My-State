@@ -26,10 +26,6 @@ export const domain = {
   importService: new PortfolioImportService(repository, telemetry),
   financialStateService,
   securityLotQueryService: new SecurityLotQueryService(repository),
-  enrichedHoldings: {
-    getEnrichedHoldings: (params: { providerId: string }) =>
-      financialStateService.getEnrichedHoldings(params),
-  },
 };
 
 export const SPRINT1_PROVIDER_ID = 'provider-web-demo';

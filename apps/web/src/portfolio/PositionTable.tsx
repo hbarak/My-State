@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { EnrichedHoldingsPosition, PriceSource } from '../../../../packages/domain/src/types/marketPrice';
 import { SecurityDrillDown } from './SecurityDrillDown';
 
@@ -16,11 +17,15 @@ export function PositionTable({
   onSelectPosition,
   onCloseDrillDown,
 }: PositionTableProps): JSX.Element {
-  const sorted = [...positions].sort((a, b) => {
-    const aVal = a.currentValue ?? -1;
-    const bVal = b.currentValue ?? -1;
-    return bVal - aVal;
-  });
+  const sorted = useMemo(
+    () =>
+      [...positions].sort((a, b) => {
+        const aVal = a.currentValue ?? -1;
+        const bVal = b.currentValue ?? -1;
+        return bVal - aVal;
+      }),
+    [positions],
+  );
 
   return (
     <div className="position-table-wrapper">
