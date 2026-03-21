@@ -1,4 +1,5 @@
 import {
+  Account,
   PortfolioImportRun,
   PositionLot,
   Provider,
@@ -24,6 +25,7 @@ const KEYS = {
   holdingRecords: 'portfolio-holding-records.v1',
   lots: 'portfolio-lots.v1',
   tickerMappings: 'ticker-mappings.v1',
+  accounts: 'accounts.v1',
 };
 
 export interface JsonStore {
@@ -32,6 +34,9 @@ export interface JsonStore {
 }
 
 export interface PortfolioRepository {
+  upsertAccount(account: Account): Promise<void>;
+  getAccount(accountId: string): Promise<Account | null>;
+  listAccountsByProvider(providerId: string): Promise<Account[]>;
   upsertProvider(provider: Provider): Promise<void>;
   getProviders(): Promise<Provider[]>;
   upsertIntegration(integration: ProviderIntegration): Promise<void>;
@@ -56,6 +61,7 @@ export interface PortfolioRepository {
   upsertHoldingRecords(records: ProviderHoldingRecord[]): Promise<void>;
   listHoldingRecords(): Promise<ProviderHoldingRecord[]>;
   listHoldingRecordsByProvider(providerId: string): Promise<ProviderHoldingRecord[]>;
+  listHoldingRecordsByAccount(providerId: string, accountId: string): Promise<ProviderHoldingRecord[]>;
   listHoldingRecordsByImportRun(importRunId: string): Promise<ProviderHoldingRecord[]>;
   listTradesByProvider(providerId: string): Promise<TradeTransaction[]>;
   listTradesByIntegration(providerIntegrationId: string): Promise<TradeTransaction[]>;
@@ -70,6 +76,27 @@ export interface PortfolioRepository {
 
 export class LocalPortfolioRepository implements PortfolioRepository {
   constructor(private readonly store: JsonStore) {}
+
+  async upsertAccount(account: Account): Promise<void> {
+    const list = await this.getList<Account>(KEYS.accounts);
+    const next = upsertByUniqueKey(
+      list,
+      account,
+      (item) => `${item.providerId}:${item.id}`,
+      () => `${account.providerId}:${account.id}`,
+    );
+    await this.setList(KEYS.accounts, next);
+  }
+
+  async getAccount(accountId: string): Promise<Account | null> {
+    const list = await this.getList<Account>(KEYS.accounts);
+    return list.find((item) => item.id === accountId) ?? null;
+  }
+
+  async listAccountsByProvider(providerId: string): Promise<Account[]> {
+    const list = await this.getList<Account>(KEYS.accounts);
+    return list.filter((item) => item.providerId === providerId);
+  }
 
   async upsertProvider(provider: Provider): Promise<void> {
     const list = await this.getList<Provider>(KEYS.providers);
@@ -215,18 +242,29 @@ export class LocalPortfolioRepository implements PortfolioRepository {
     await this.setList(KEYS.holdingRecords, next);
   }
 
-  listHoldingRecords(): Promise<ProviderHoldingRecord[]> {
-    return this.getList<ProviderHoldingRecord>(KEYS.holdingRecords);
+  async listHoldingRecords(): Promise<ProviderHoldingRecord[]> {
+    const list = await this.getList<ProviderHoldingRecord>(KEYS.holdingRecords);
+    return list.map(migrateAccountId);
   }
 
   async listHoldingRecordsByProvider(providerId: string): Promise<ProviderHoldingRecord[]> {
     const list = await this.getList<ProviderHoldingRecord>(KEYS.holdingRecords);
-    return list.filter((item) => item.providerId === providerId && !item.deletedAt);
+    return list
+      .filter((item) => item.providerId === providerId && !item.deletedAt)
+      .map(migrateAccountId);
+  }
+
+  async listHoldingRecordsByAccount(providerId: string, accountId: string): Promise<ProviderHoldingRecord[]> {
+    const list = await this.getList<ProviderHoldingRecord>(KEYS.holdingRecords);
+    return list
+      .filter((item) => item.providerId === providerId && !item.deletedAt)
+      .map(migrateAccountId)
+      .filter((item) => item.accountId === accountId);
   }
 
   async listHoldingRecordsByImportRun(importRunId: string): Promise<ProviderHoldingRecord[]> {
     const list = await this.getList<ProviderHoldingRecord>(KEYS.holdingRecords);
-    return list.filter((item) => item.importRunId === importRunId);
+    return list.filter((item) => item.importRunId === importRunId).map(migrateAccountId);
   }
 
   async listTradesByProvider(providerId: string): Promise<TradeTransaction[]> {
@@ -296,6 +334,12 @@ export class LocalPortfolioRepository implements PortfolioRepository {
   private async setList<T>(key: string, list: T[]): Promise<void> {
     await this.store.setItem(key, JSON.stringify(list));
   }
+}
+
+/** On-read migration: assign accountId "default" to R2 records that lack it */
+function migrateAccountId(record: ProviderHoldingRecord): ProviderHoldingRecord {
+  if (record.accountId) return record;
+  return { ...record, accountId: 'default' };
 }
 
 function upsertById<T extends { id: string }>(list: T[], value: T): T[] {

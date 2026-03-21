@@ -37,6 +37,7 @@ export interface ImportCommitResult {
 interface ImportContext {
   providerId: string;
   providerIntegrationId: string;
+  accountId: string;
   integration: ProviderIntegration;
   profile: ProviderMappingProfile;
 }
@@ -62,8 +63,9 @@ export class ImportOrchestrator {
     providerId: string;
     providerIntegrationId: string;
     csvText: string;
+    accountId?: string;
   }): Promise<ImportPreviewResult> {
-    const context = await this.prepareContext(params.providerId, params.providerIntegrationId);
+    const context = await this.prepareContext(params.providerId, params.providerIntegrationId, params.accountId);
     assertCsvPatternFit(context.profile, params.csvText);
     const handler = this.getHandler(context.integration.dataDomain);
     return handler.preview(context, params.csvText);
@@ -74,8 +76,9 @@ export class ImportOrchestrator {
     providerIntegrationId: string;
     sourceName: string;
     csvText: string;
+    accountId?: string;
   }): Promise<ImportCommitResult> {
-    const context = await this.prepareContext(params.providerId, params.providerIntegrationId);
+    const context = await this.prepareContext(params.providerId, params.providerIntegrationId, params.accountId);
     assertCsvPatternFit(context.profile, params.csvText);
     const handler = this.getHandler(context.integration.dataDomain);
 
@@ -86,6 +89,7 @@ export class ImportOrchestrator {
       id: runId,
       providerId: params.providerId,
       providerIntegrationId: params.providerIntegrationId,
+      accountId: context.accountId,
       sourceName: params.sourceName,
       status: 'running',
       startedAt,
@@ -178,7 +182,7 @@ export class ImportOrchestrator {
     return handler;
   }
 
-  private async prepareContext(providerId: string, providerIntegrationId: string): Promise<ImportContext> {
+  private async prepareContext(providerId: string, providerIntegrationId: string, accountId?: string): Promise<ImportContext> {
     const integration = await this.repository.getIntegrationById(providerIntegrationId);
     if (!integration) {
       throw new Error(`Unknown provider integration: ${providerIntegrationId}`);
@@ -198,6 +202,7 @@ export class ImportOrchestrator {
     return {
       providerId,
       providerIntegrationId,
+      accountId: accountId ?? 'default',
       integration,
       profile,
     };
@@ -283,7 +288,7 @@ export class PsagotHoldingsImportHandler implements DomainImportHandler {
       };
     }
 
-    const existing = await this.repository.listHoldingRecordsByProvider(context.providerId);
+    const existing = await this.repository.listHoldingRecordsByAccount(context.providerId, context.accountId);
     const existingByIdentity = new Map<string, ProviderHoldingRecord>();
     for (const record of existing) {
       existingByIdentity.set(holdingLotIdentityKey(record), record);
@@ -295,6 +300,7 @@ export class PsagotHoldingsImportHandler implements DomainImportHandler {
         rowNumber: idx + 1,
         providerId: context.providerId,
         providerIntegrationId: context.providerIntegrationId,
+        accountId: context.accountId,
         profile: context.profile,
         existing,
         existingByIdentity,
@@ -311,7 +317,7 @@ export class PsagotHoldingsImportHandler implements DomainImportHandler {
   }
 
   async commit(context: ImportContext, preview: ImportPreviewResult, runId: string): Promise<void> {
-    const existing = await this.repository.listHoldingRecordsByProvider(context.providerId);
+    const existing = await this.repository.listHoldingRecordsByAccount(context.providerId, context.accountId);
 
     // Build set of lot identity keys present in the new CSV (valid + duplicate rows)
     const newLotKeys = new Set<string>();
@@ -441,6 +447,7 @@ function toHoldingPreviewRow(params: {
   rowNumber: number;
   providerId: string;
   providerIntegrationId: string;
+  accountId: string;
   profile: ProviderMappingProfile;
   existing: ProviderHoldingRecord[];
   existingByIdentity?: Map<string, ProviderHoldingRecord>;
@@ -462,6 +469,7 @@ function toHoldingPreviewRow(params: {
     id: makeId('holding_row'),
     providerId: params.providerId,
     providerIntegrationId: params.providerIntegrationId,
+    accountId: params.accountId,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -579,7 +587,7 @@ function normalizeHoldingRow(
   row: Record<string, string>,
   profile: ProviderMappingProfile,
 ):
-  | { record: Omit<ProviderHoldingRecord, 'id' | 'providerId' | 'providerIntegrationId' | 'importRunId' | 'createdAt' | 'updatedAt'> }
+  | { record: Omit<ProviderHoldingRecord, 'id' | 'providerId' | 'providerIntegrationId' | 'accountId' | 'importRunId' | 'createdAt' | 'updatedAt'> }
   | { errorCode: string; errorMessage: string } {
   const read = (field: string): string => {
     const sourceColumn = profile.fieldMappings[field];
@@ -672,12 +680,12 @@ function isDuplicateHolding(candidate: ProviderHoldingRecord, existing: Provider
 }
 
 function holdingCompositeKey(row: ProviderHoldingRecord): string {
-  return [row.securityId, row.actionType, row.quantity, row.actionDate, row.costBasis].join('|');
+  return [row.accountId ?? 'default', row.securityId, row.actionType, row.quantity, row.actionDate, row.costBasis].join('|');
 }
 
 /** Lot identity without quantity — used for matching lots across re-imports where quantity may change */
 function holdingLotIdentityKey(row: ProviderHoldingRecord): string {
-  return [row.securityId, row.actionType, row.actionDate, row.costBasis].join('|');
+  return [row.accountId ?? 'default', row.securityId, row.actionType, row.actionDate, row.costBasis].join('|');
 }
 
 function parseCsv(csvText: string): Record<string, string>[] {

@@ -1,11 +1,12 @@
 import type { PortfolioRepository } from '../repositories';
-import type { ProviderHoldingRecord } from '../types';
+import type { Account, ProviderHoldingRecord } from '../types';
 import { aggregateHoldingLots } from './aggregateHoldingLots';
 
 export interface SecurityLot {
   recordId: string;
   securityId: string;
   securityName: string;
+  accountId: string;
   actionType: string;
   quantity: number;
   costBasis: number;
@@ -14,6 +15,16 @@ export interface SecurityLot {
   currentPrice?: number;
   importRunId?: string;
   fifoOrder: number;
+}
+
+export interface AccountSubtotal {
+  accountId: string;
+  accountName: string;
+  quantity: number;
+  totalCost: number;
+  weightedAvgCostBasis: number;
+  lotCount: number;
+  lots: SecurityLot[];
 }
 
 export interface SecurityPosition {
@@ -27,6 +38,7 @@ export interface SecurityPosition {
   unrealizedGain?: number;
   lotCount: number;
   lots: SecurityLot[];
+  accountBreakdown: AccountSubtotal[];
 }
 
 export interface PortfolioLotView {
@@ -42,6 +54,11 @@ export class SecurityLotQueryService {
   async getPortfolioLots(params: { providerId: string }): Promise<PortfolioLotView> {
     const records = await this.repository.listHoldingRecordsByProvider(params.providerId);
     const runs = await this.repository.listImportRunsByProvider(params.providerId);
+    const accounts = await this.repository.listAccountsByProvider(params.providerId);
+
+    const accountNameById = new Map<string, string>(
+      accounts.map((a) => [a.id, a.name]),
+    );
 
     const validRunIds = new Set(
       runs
@@ -53,7 +70,7 @@ export class SecurityLotQueryService {
 
     const grouped = groupBySecurityId(eligible);
     const positions = Array.from(grouped.entries())
-      .map(([securityId, lots]) => buildPosition(securityId, lots))
+      .map(([securityId, lots]) => buildPosition(securityId, lots, accountNameById))
       .sort((a, b) => a.securityId.localeCompare(b.securityId));
 
     return {
@@ -83,7 +100,11 @@ function groupBySecurityId(records: ProviderHoldingRecord[]): Map<string, Provid
   return map;
 }
 
-function buildPosition(securityId: string, records: ProviderHoldingRecord[]): SecurityPosition {
+function buildPosition(
+  securityId: string,
+  records: ProviderHoldingRecord[],
+  accountNameById: Map<string, string>,
+): SecurityPosition {
   const sorted = [...records].sort((a, b) => {
     const dateCmp = a.actionDate.localeCompare(b.actionDate);
     if (dateCmp !== 0) return dateCmp;
@@ -94,6 +115,7 @@ function buildPosition(securityId: string, records: ProviderHoldingRecord[]): Se
     recordId: r.id,
     securityId: r.securityId,
     securityName: r.securityName,
+    accountId: r.accountId ?? 'default',
     actionType: r.actionType,
     quantity: r.quantity,
     costBasis: r.costBasis,
@@ -112,6 +134,8 @@ function buildPosition(securityId: string, records: ProviderHoldingRecord[]): Se
     unrealizedGain = (agg.latestCurrentPrice * agg.totalQuantity) - agg.totalCost;
   }
 
+  const accountBreakdown = buildAccountBreakdown(lots, accountNameById);
+
   return {
     securityId,
     securityName: first.securityName,
@@ -123,5 +147,42 @@ function buildPosition(securityId: string, records: ProviderHoldingRecord[]): Se
     unrealizedGain,
     lotCount: lots.length,
     lots,
+    accountBreakdown,
   };
+}
+
+function buildAccountBreakdown(
+  lots: SecurityLot[],
+  accountNameById: Map<string, string>,
+): AccountSubtotal[] {
+  const grouped = new Map<string, SecurityLot[]>();
+  for (const lot of lots) {
+    const existing = grouped.get(lot.accountId);
+    if (existing) {
+      existing.push(lot);
+    } else {
+      grouped.set(lot.accountId, [lot]);
+    }
+  }
+
+  return Array.from(grouped.entries())
+    .map(([accountId, accountLots]) => {
+      let totalQuantity = 0;
+      let totalCost = 0;
+      for (const lot of accountLots) {
+        totalQuantity += lot.quantity;
+        totalCost += lot.costBasis * lot.quantity;
+      }
+
+      return {
+        accountId,
+        accountName: accountNameById.get(accountId) ?? accountId,
+        quantity: totalQuantity,
+        totalCost,
+        weightedAvgCostBasis: totalQuantity > 0 ? totalCost / totalQuantity : 0,
+        lotCount: accountLots.length,
+        lots: accountLots,
+      };
+    })
+    .sort((a, b) => a.accountId.localeCompare(b.accountId));
 }

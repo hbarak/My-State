@@ -183,6 +183,7 @@ function enrichPosition(
     lotCount: pos.lotCount,
     sourceRecordIds: pos.sourceRecordIds,
     sourceImportRunIds: pos.sourceImportRunIds,
+    accountIds: pos.accountIds ?? [],
     ticker,
     livePrice,
     livePriceCurrency,

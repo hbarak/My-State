@@ -27,6 +27,7 @@ export class PortfolioImportService {
     providerId: string;
     providerIntegrationId: string;
     csvText: string;
+    accountId?: string;
   }): Promise<ImportPreviewResult> {
     try {
       const result = await this.orchestrator.previewImport(params);
@@ -51,6 +52,7 @@ export class PortfolioImportService {
     providerIntegrationId: string;
     sourceName: string;
     csvText: string;
+    accountId?: string;
   }): Promise<ImportCommitResult> {
     try {
       const result = await this.orchestrator.commitImport(params);

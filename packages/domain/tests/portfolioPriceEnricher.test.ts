@@ -22,6 +22,7 @@ function makePosition(overrides: Partial<TotalHoldingsPosition> & { securityId: 
     lotCount: overrides.lotCount ?? 1,
     sourceRecordIds: overrides.sourceRecordIds ?? ['rec-1'],
     sourceImportRunIds: overrides.sourceImportRunIds ?? ['run-1'],
+    accountIds: overrides.accountIds ?? ['default'],
   };
 }
 
@@ -343,5 +344,43 @@ describe('PortfolioPriceEnricher', () => {
 
     expect(result.positions[0].currentPrice).toBe(60);
     expect(result.stateType).toBe('enriched_holdings');
+  });
+
+  // PE1: EnrichedHoldingsPosition carries accountIds from TotalHoldingsPosition unchanged
+  it('PE1: enriched position carries accountIds unchanged', async () => {
+    const positions = [
+      makePosition({ securityId: '1001', totalCost: 5000, quantity: 100, accountIds: ['acct-a', 'acct-b'] }),
+    ];
+    const state = makeHoldingsState(positions);
+
+    const enricher = new PortfolioPriceEnricher(
+      stubResolver({ mappings: { '1001': makeMapping('1001', 'AAA.TA') } }),
+      stubPriceService({ prices: { '1001': { price: 60, currency: 'ILS' } } }),
+    );
+
+    const result = await enricher.enrich(state);
+
+    expect(result.positions[0].accountIds).toEqual(['acct-a', 'acct-b']);
+  });
+
+  // PE2: Multi-account position gets single price applied, accountIds preserved
+  it('PE2: multi-account position gets single price, accountIds preserved', async () => {
+    const positions = [
+      makePosition({ securityId: '2001', totalCost: 10000, quantity: 200, accountIds: ['joint', 'ira', 'taxable'] }),
+    ];
+    const state = makeHoldingsState(positions);
+
+    const enricher = new PortfolioPriceEnricher(
+      stubResolver({ mappings: { '2001': makeMapping('2001', 'LEUMI.TA') } }),
+      stubPriceService({ prices: { '2001': { price: 55, currency: 'ILS' } } }),
+    );
+
+    const result = await enricher.enrich(state);
+    const enriched = result.positions[0];
+
+    expect(enriched.accountIds).toEqual(['joint', 'ira', 'taxable']);
+    expect(enriched.currentPrice).toBe(55);
+    expect(enriched.currentValue).toBe(200 * 55);
+    expect(enriched.priceSource).toBe('live');
   });
 });

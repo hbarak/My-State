@@ -24,6 +24,7 @@ export interface EnrichedHoldingsPosition {
   readonly lotCount: number;
   readonly sourceRecordIds: readonly string[];
   readonly sourceImportRunIds: readonly string[];
+  readonly accountIds: readonly string[];
 
   readonly ticker?: string;
   readonly livePrice?: number;

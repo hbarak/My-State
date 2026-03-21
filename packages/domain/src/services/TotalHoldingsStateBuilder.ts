@@ -102,10 +102,14 @@ function aggregatePosition(key: string, lots: ProviderHoldingRecord[]): TotalHol
 
   const sourceRecordIds: string[] = [];
   const sourceRunIdSet = new Set<string>();
+  const accountIdSet = new Set<string>();
   for (const lot of lots) {
     sourceRecordIds.push(lot.id);
     if (lot.importRunId) {
       sourceRunIdSet.add(lot.importRunId);
+    }
+    if (lot.accountId) {
+      accountIdSet.add(lot.accountId);
     }
   }
 
@@ -123,6 +127,7 @@ function aggregatePosition(key: string, lots: ProviderHoldingRecord[]): TotalHol
     lotCount: lots.length,
     sourceRecordIds,
     sourceImportRunIds: Array.from(sourceRunIdSet).sort(),
+    accountIds: Array.from(accountIdSet).sort(),
   };
 }
 

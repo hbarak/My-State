@@ -6,6 +6,7 @@ export interface PortfolioImportRun {
   id: string;
   providerId: string;
   providerIntegrationId: string;
+  accountId?: string;
   sourceName: string;
   status: SyncStatus;
   startedAt: ISODateTime;
@@ -58,6 +59,7 @@ export interface ProviderHoldingRecord {
   providerId: string;
   providerIntegrationId: string;
   importRunId?: string;
+  accountId: string;
   securityId: string;
   securityName: string;
   actionType: string;

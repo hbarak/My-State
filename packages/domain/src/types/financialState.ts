@@ -27,6 +27,8 @@ export interface TotalHoldingsPosition {
   /** IDs of all lot records included in this position */
   sourceRecordIds: string[];
   sourceImportRunIds: string[];
+  /** All account IDs contributing lots to this position */
+  accountIds: string[];
 }
 
 export interface TotalHoldingsState {

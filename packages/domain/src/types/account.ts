@@ -1,18 +1,14 @@
-import { CurrencyCode, ISODateTime } from './common';
+import { ISODateTime } from './common';
 
-export type AccountType = 'bank' | 'brokerage' | 'credit_card' | 'wallet' | 'cash' | 'other';
-export type ProviderType = 'manual' | 'plaid' | 'tink' | 'truelayer' | 'ibkr' | 'other';
-
+/**
+ * A provider-scoped account (e.g., "psagot-joint", "psagot-ira").
+ * One provider can have multiple accounts. One account belongs to exactly one provider.
+ * No deletion in R3 — accounts are append/update only.
+ */
 export interface Account {
-  id: string;
-  name: string;
-  type: AccountType;
-  provider: ProviderType;
-  providerAccountId?: string;
-  baseCurrency: CurrencyCode;
-  institutionName?: string;
-  lastSyncAt?: ISODateTime;
-  isActive: boolean;
-  createdAt: ISODateTime;
-  updatedAt: ISODateTime;
+  readonly id: string;
+  readonly providerId: string;
+  readonly name: string;
+  readonly createdAt: ISODateTime;
+  readonly updatedAt: ISODateTime;
 }
