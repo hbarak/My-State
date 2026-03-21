@@ -5,6 +5,7 @@ import { SecurityLotQueryService } from '../../../../packages/domain/src/service
 import { MarketPriceService } from '../../../../packages/domain/src/services/MarketPriceService';
 import { TickerResolverService } from '../../../../packages/domain/src/services/TickerResolverService';
 import { PortfolioPriceEnricher } from '../../../../packages/domain/src/services/PortfolioPriceEnricher';
+import { AccountService, ensureDefaultAccounts } from '../../../../packages/domain/src/services/AccountService';
 import { BrowserLocalStorageJsonStore } from '../../../../packages/domain/src/stores/jsonStores';
 import { TelemetryService, ConsoleTelemetrySink } from '../../../../packages/domain/src/telemetry';
 import { YahooFinancePriceFetcher } from '../adapters/YahooFinancePriceFetcher';
@@ -26,6 +27,7 @@ export const domain = {
   importService: new PortfolioImportService(repository, telemetry),
   financialStateService,
   securityLotQueryService: new SecurityLotQueryService(repository),
+  accountService: new AccountService(repository),
 };
 
 export const SPRINT1_PROVIDER_ID = 'provider-web-demo';
@@ -34,6 +36,9 @@ export const SPRINT1_HOLDINGS_INTEGRATION_ID = 'integration-web-demo-holdings-cs
 
 export async function ensureSprintOnePreviewSetup(): Promise<void> {
   const now = nowIso();
+
+  // Ensure default accounts exist for backward compatibility
+  await ensureDefaultAccounts(repository);
 
   await repository.upsertProvider({
     id: SPRINT1_PROVIDER_ID,

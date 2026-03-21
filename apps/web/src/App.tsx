@@ -13,6 +13,8 @@ import {
   type ResolutionRowOutcome,
 } from './import/resolutionAuditStore';
 import { PortfolioDashboard } from './portfolio';
+import { AccountSelector } from './import/AccountSelector';
+import type { Account } from '../../../packages/domain/src/types/account';
 import styles from './App.module.css';
 
 type PreviewResult = Awaited<ReturnType<typeof domain.importService.previewImport>>;
@@ -43,13 +45,21 @@ export default function App(): JSX.Element {
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [clientRunId, setClientRunId] = useState<string>(() => makeClientRunId());
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const activeRunToken = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
     void ensureSprintOnePreviewSetup()
-      .then(() => {
+      .then(async () => {
         if (cancelled) return;
+        const accountList = await domain.accountService.listByProvider(SPRINT1_PROVIDER_ID);
+        if (cancelled) return;
+        setAccounts(accountList);
+        if (accountList.length > 0 && !selectedAccountId) {
+          setSelectedAccountId(accountList[0].id);
+        }
         setBootstrapStatus('ready');
       })
       .catch((error) => {
@@ -66,6 +76,17 @@ export default function App(): JSX.Element {
   const invalidCount = preview?.invalidRows.length ?? 0;
   const duplicateCount = preview?.duplicateRows.length ?? 0;
   const reasonSummary = useMemo(() => summarizeReasons(preview?.invalidRows ?? []), [preview]);
+
+  const onCreateAccount = async (params: { id: string; name: string }): Promise<void> => {
+    const account = await domain.accountService.createAccount({
+      id: params.id,
+      providerId: SPRINT1_PROVIDER_ID,
+      name: params.name,
+    });
+    const updated = await domain.accountService.listByProvider(SPRINT1_PROVIDER_ID);
+    setAccounts(updated);
+    setSelectedAccountId(account.id);
+  };
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
@@ -96,6 +117,7 @@ export default function App(): JSX.Element {
         providerId: SPRINT1_PROVIDER_ID,
         providerIntegrationId: integrationId,
         csvText: parsed.csvText,
+        accountId: selectedAccountId ?? undefined,
       });
       if (!isActiveToken(token, activeRunToken.current)) return;
 
@@ -206,6 +228,7 @@ export default function App(): JSX.Element {
       providerIntegrationId: params.integrationId,
       sourceName: params.payload.sourceName,
       csvText: params.payload.csvText,
+      accountId: selectedAccountId ?? undefined,
     });
     if (!isActiveToken(params.token, activeRunToken.current)) return;
 
@@ -263,6 +286,16 @@ export default function App(): JSX.Element {
 
       {activeView === 'import' && (
         <>
+          <section className={styles.card}>
+            <AccountSelector
+              accounts={accounts}
+              selectedAccountId={selectedAccountId}
+              onSelect={setSelectedAccountId}
+              onCreate={onCreateAccount}
+              disabled={!canUpload}
+            />
+          </section>
+
           <section className={`${styles.card} ${styles.uploadLayout}`}>
             <label htmlFor="csv-upload" className={styles.fieldLabel}>
               CSV file
@@ -290,6 +323,9 @@ export default function App(): JSX.Element {
               </p>
               <p>
                 <strong>Route:</strong> {readableIntegrationName(selectedIntegrationId)}
+              </p>
+              <p>
+                <strong>Account:</strong> {readableAccountName(accounts, selectedAccountId)}
               </p>
             </section>
           ) : null}
@@ -528,6 +564,12 @@ function readableIntegrationName(integrationId: string | null): string {
   if (integrationId === SPRINT1_HOLDINGS_INTEGRATION_ID) return 'Holdings CSV';
   if (integrationId === SPRINT1_TRADES_INTEGRATION_ID) return 'Trades CSV';
   return 'n/a';
+}
+
+function readableAccountName(accounts: readonly Account[], accountId: string | null): string {
+  if (!accountId) return 'n/a';
+  const account = accounts.find((a) => a.id === accountId);
+  return account?.name ?? accountId;
 }
 
 function formatNumber(value: number): string {
