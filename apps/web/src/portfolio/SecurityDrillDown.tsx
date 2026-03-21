@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EnrichedHoldingsPosition } from '../../../../packages/domain/src/types/marketPrice';
 import type { SecurityPosition, SecurityLot } from '../../../../packages/domain/src/services/SecurityLotQueryService';
 import { domain } from '../domain/bootstrap';
+import { AccountSection } from './AccountSection';
 import styles from './SecurityDrillDown.module.css';
 
 interface SecurityDrillDownProps {
@@ -81,7 +82,20 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
             </div>
           )}
 
-          {fetchState === 'ready' && securityPosition && (
+          {fetchState === 'ready' && securityPosition && securityPosition.accountBreakdown.length > 1 && (
+            securityPosition.accountBreakdown.map((subtotal) => (
+              <AccountSection
+                key={subtotal.accountId}
+                subtotal={subtotal}
+                currency={position.currency}
+                livePrice={position.currentPrice}
+                renderLotTable={renderLotTable}
+                defaultOpen={securityPosition.accountBreakdown.length <= 3}
+              />
+            ))
+          )}
+
+          {fetchState === 'ready' && securityPosition && securityPosition.accountBreakdown.length <= 1 && (
             <LotTable lots={securityPosition.lots} livePrice={position.currentPrice} currency={position.currency} />
           )}
 
@@ -92,6 +106,10 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
       </td>
     </tr>
   );
+}
+
+function renderLotTable(lots: readonly SecurityLot[], livePrice: number | undefined, currency: string): JSX.Element {
+  return <LotTable lots={lots} livePrice={livePrice} currency={currency} />;
 }
 
 function LotTable({
