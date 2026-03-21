@@ -7,6 +7,10 @@ interface CreateAccountParams {
   readonly name: string;
 }
 
+interface UpdateAccountParams {
+  readonly name: string;
+}
+
 export class AccountService {
   constructor(private readonly repository: PortfolioRepository) {}
 
@@ -24,6 +28,22 @@ export class AccountService {
 
     await this.repository.upsertAccount(account);
     return account;
+  }
+
+  async updateAccount(accountId: string, params: UpdateAccountParams): Promise<Account> {
+    const existing = await this.repository.getAccount(accountId);
+    if (!existing) {
+      throw new Error(`Account not found: ${accountId}`);
+    }
+
+    const updated: Account = {
+      ...existing,
+      name: params.name,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.repository.upsertAccount(updated);
+    return updated;
   }
 
   async getById(accountId: string): Promise<Account | null> {

@@ -128,6 +128,37 @@ describe('AccountService', () => {
     expect(accounts[0].name).toBe('Updated Name');
   });
 
+  // A8: updateAccount changes name, preserves createdAt, bumps updatedAt
+  it('updates account name and bumps updatedAt', async () => {
+    const { service } = makeFixture();
+
+    const original = await service.createAccount({
+      id: 'upd-test',
+      providerId: 'prov',
+      name: 'Old Name',
+    });
+
+    const updated = await service.updateAccount('upd-test', { name: 'New Name' });
+
+    expect(updated.name).toBe('New Name');
+    expect(updated.id).toBe('upd-test');
+    expect(updated.providerId).toBe('prov');
+    expect(updated.createdAt).toBe(original.createdAt);
+    expect(updated.updatedAt >= original.updatedAt).toBe(true);
+
+    const retrieved = await service.getById('upd-test');
+    expect(retrieved!.name).toBe('New Name');
+  });
+
+  // A9: updateAccount on non-existent account -> throws
+  it('throws when updating non-existent account', async () => {
+    const { service } = makeFixture();
+
+    await expect(
+      service.updateAccount('ghost', { name: 'Nope' }),
+    ).rejects.toThrow('Account not found: ghost');
+  });
+
   // Regression: existing provider setup tests still pass (no interference from account storage)
   it('account storage does not interfere with provider storage', async () => {
     const { repository, service } = makeFixture();
