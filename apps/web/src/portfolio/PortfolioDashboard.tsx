@@ -4,6 +4,7 @@ import { SPRINT1_PROVIDER_ID } from '../domain/bootstrap';
 import { PortfolioSummary } from './PortfolioSummary';
 import { AllocationChart } from './AllocationChart';
 import { PositionTable } from './PositionTable';
+import styles from './PortfolioDashboard.module.css';
 
 export function PortfolioDashboard(): JSX.Element {
   const { state, data, error, refetch } = useEnrichedHoldings(SPRINT1_PROVIDER_ID);
@@ -19,7 +20,7 @@ export function PortfolioDashboard(): JSX.Element {
 
   if (state === 'loading') {
     return (
-      <div className="dashboard-loading">
+      <div className={styles.loading}>
         <p>Loading portfolio...</p>
       </div>
     );
@@ -27,19 +28,19 @@ export function PortfolioDashboard(): JSX.Element {
 
   if (state === 'error') {
     return (
-      <div className="card dashboard-error">
+      <div className={`${styles.card} ${styles.error}`}>
         <h2>Failed to load portfolio</h2>
-        <p className="error">{error}</p>
-        <button onClick={refetch}>Retry</button>
+        <p className={styles.errorText}>{error}</p>
+        <button className={styles.retryButton} onClick={refetch}>Retry</button>
       </div>
     );
   }
 
   if (!data || data.positionCount === 0) {
     return (
-      <div className="card dashboard-empty">
+      <div className={`${styles.card} ${styles.empty}`}>
         <h2>Portfolio</h2>
-        <p className="muted">No holdings imported yet. Upload a CSV to get started.</p>
+        <p className={styles.muted}>No holdings imported yet. Upload a CSV to get started.</p>
       </div>
     );
   }
@@ -47,10 +48,10 @@ export function PortfolioDashboard(): JSX.Element {
   const currencies = Object.keys(data.costTotalsByCurrency);
 
   return (
-    <div className="portfolio-dashboard">
-      <div className="dashboard-header">
+    <div className={styles.dashboard}>
+      <div className={styles.header}>
         <h2>Portfolio</h2>
-        <button className="secondary" onClick={refetch}>Refresh</button>
+        <button className={styles.refreshButton} onClick={refetch}>Refresh</button>
       </div>
 
       <PortfolioSummary enrichedState={data} />

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { EnrichedHoldingsPosition } from '../../../../packages/domain/src/types/marketPrice';
+import styles from './AllocationChart.module.css';
 
 interface AllocationChartProps {
   readonly positions: readonly EnrichedHoldingsPosition[];
@@ -43,26 +44,26 @@ export function AllocationChart({ positions, currency }: AllocationChartProps): 
   }
 
   return (
-    <div className="allocation-chart">
+    <div className={styles.chart}>
       <h3>Allocation ({currency})</h3>
-      <div className="allocation-bars">
+      <div className={styles.bars}>
         {rows.map((row) => (
-          <div key={row.securityId} className="allocation-row">
-            <span className="allocation-label">
+          <div key={row.securityId} className={styles.row}>
+            <span className={styles.label}>
               {row.ticker ?? row.securityName}
             </span>
-            <div className="allocation-bar-track">
+            <div className={styles.barTrack}>
               <div
-                className="allocation-bar-fill"
+                className={styles.barFill}
                 style={{ width: `${Math.max(row.weight, 1)}%` }}
               />
             </div>
-            <span className="allocation-pct">{row.weight.toFixed(1)}%</span>
+            <span className={styles.pct}>{row.weight.toFixed(1)}%</span>
           </div>
         ))}
       </div>
       {noPriceCount > 0 && (
-        <p className="muted allocation-footnote">
+        <p className={styles.footnote}>
           {noPriceCount} position{noPriceCount > 1 ? 's' : ''} excluded (no price)
         </p>
       )}

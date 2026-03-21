@@ -1,4 +1,5 @@
 import type { EnrichedHoldingsState } from '../../../../packages/domain/src/types/marketPrice';
+import styles from './PortfolioSummary.module.css';
 
 interface PortfolioSummaryProps {
   readonly enrichedState: EnrichedHoldingsState;
@@ -10,23 +11,23 @@ export function PortfolioSummary({ enrichedState }: PortfolioSummaryProps): JSX.
   const currencies = Object.keys(enrichedState.costTotalsByCurrency);
 
   return (
-    <section className="card portfolio-summary">
-      <div className="summary-header">
+    <section className={styles.summary}>
+      <div className={styles.summaryHeader}>
         <h2>Portfolio Overview</h2>
         <PriceBadge priceSummary={priceSummary} />
       </div>
 
       {insufficientData && (
-        <p className="warning">
+        <p className={styles.warning}>
           Some positions lack price data — totals are partial.
         </p>
       )}
 
       {currencies.length === 0 && (
-        <p className="muted">No positions to display.</p>
+        <p className={styles.muted}>No positions to display.</p>
       )}
 
-      <div className="currency-totals">
+      <div className={styles.currencyTotals}>
         {currencies.map((currency) => {
           const cost = enrichedState.costTotalsByCurrency[currency] ?? 0;
           const value = enrichedState.valuationTotalsByCurrency[currency];
@@ -34,24 +35,24 @@ export function PortfolioSummary({ enrichedState }: PortfolioSummaryProps): JSX.
           const gainPct = gain !== undefined && cost > 0 ? (gain / cost) * 100 : undefined;
 
           return (
-            <div key={currency} className="currency-total-card card">
+            <div key={currency} className={styles.currencyCard}>
               <h3>{currency}</h3>
-              <div className="summary-grid summary-grid--2col">
-                <div className="summary-box">
+              <div className={styles.grid}>
+                <div className={styles.box}>
                   <h3>Value</h3>
                   <p>{value !== undefined ? formatCurrency(value, currency) : '—'}</p>
                 </div>
-                <div className="summary-box">
+                <div className={styles.box}>
                   <h3>Cost</h3>
                   <p>{formatCurrency(cost, currency)}</p>
                 </div>
-                <div className="summary-box">
+                <div className={styles.box}>
                   <h3>Gain / Loss</h3>
                   <p className={gainClass(gain)}>
                     {gain !== undefined ? formatSignedCurrency(gain, currency) : '—'}
                   </p>
                 </div>
-                <div className="summary-box">
+                <div className={styles.box}>
                   <h3>Gain %</h3>
                   <p className={gainClass(gain)}>
                     {gainPct !== undefined ? formatPct(gainPct) : '—'}
@@ -64,7 +65,7 @@ export function PortfolioSummary({ enrichedState }: PortfolioSummaryProps): JSX.
       </div>
 
       {pricesFetchedAt && (
-        <p className="muted price-timestamp">
+        <p className={`${styles.muted} ${styles.priceTimestamp}`}>
           Prices fetched {formatRelativeTime(pricesFetchedAt)}
         </p>
       )}
@@ -76,18 +77,18 @@ function PriceBadge({ priceSummary }: { priceSummary: EnrichedHoldingsState['pri
   if (priceSummary.total === 0) return <></>;
 
   if (priceSummary.unavailable === 0) {
-    return <span className="badge badge--green">All prices live</span>;
+    return <span className={styles.badgeGreen}>All prices live</span>;
   }
   if (priceSummary.live > 0) {
-    return <span className="badge badge--yellow">Partial prices</span>;
+    return <span className={styles.badgeYellow}>Partial prices</span>;
   }
-  return <span className="badge badge--red">Prices unavailable</span>;
+  return <span className={styles.badgeRed}>Prices unavailable</span>;
 }
 
 function gainClass(gain: number | undefined): string {
   if (gain === undefined) return '';
-  if (gain > 0) return 'gain-positive';
-  if (gain < 0) return 'gain-negative';
+  if (gain > 0) return styles.gainPositive;
+  if (gain < 0) return styles.gainNegative;
   return '';
 }
 

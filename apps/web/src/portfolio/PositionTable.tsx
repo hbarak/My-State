@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { EnrichedHoldingsPosition, PriceSource } from '../../../../packages/domain/src/types/marketPrice';
 import { SecurityDrillDown } from './SecurityDrillDown';
+import styles from './PositionTable.module.css';
 
 interface PositionTableProps {
   readonly positions: readonly EnrichedHoldingsPosition[];
@@ -28,19 +29,19 @@ export function PositionTable({
   );
 
   return (
-    <div className="position-table-wrapper">
+    <div className={styles.wrapper}>
       <h3>Positions</h3>
-      <table className="position-table">
+      <table className={styles.table}>
         <thead>
           <tr>
             <th>Security</th>
             <th>Ticker</th>
-            <th className="num">Qty</th>
-            <th className="num">Avg Cost</th>
-            <th className="num">Price</th>
-            <th className="num">Value</th>
-            <th className="num">Gain/Loss</th>
-            <th className="num">Gain %</th>
+            <th className={styles.num}>Qty</th>
+            <th className={styles.num}>Avg Cost</th>
+            <th className={styles.num}>Price</th>
+            <th className={styles.num}>Value</th>
+            <th className={styles.num}>Gain/Loss</th>
+            <th className={styles.num}>Gain %</th>
           </tr>
         </thead>
         <tbody>
@@ -85,14 +86,14 @@ function PositionRow({
       >
         <td>{position.securityName}</td>
         <td>{position.ticker ?? '—'}</td>
-        <td className="num">{formatNum(position.quantity)}</td>
-        <td className="num">{formatMoney(position.costBasis, position.currency)}</td>
-        <td className="num">{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
-        <td className="num">{position.currentValue !== undefined ? formatMoney(position.currentValue, position.currency) : '—'}</td>
-        <td className={`num ${gainClass(position.unrealizedGain)}`}>
+        <td className={styles.num}>{formatNum(position.quantity)}</td>
+        <td className={styles.num}>{formatMoney(position.costBasis, position.currency)}</td>
+        <td className={styles.num}>{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
+        <td className={styles.num}>{position.currentValue !== undefined ? formatMoney(position.currentValue, position.currency) : '—'}</td>
+        <td className={`${styles.num} ${gainClass(position.unrealizedGain)}`}>
           {position.unrealizedGain !== undefined ? formatSignedMoney(position.unrealizedGain, position.currency) : '—'}
         </td>
-        <td className={`num ${gainClass(position.unrealizedGain)}`}>
+        <td className={`${styles.num} ${gainClass(position.unrealizedGain)}`}>
           {position.unrealizedGainPct !== undefined ? formatPct(position.unrealizedGainPct) : '—'}
         </td>
       </tr>
@@ -103,9 +104,18 @@ function PositionRow({
   );
 }
 
+const PRICE_SOURCE_STYLES: Record<PriceSource, string | undefined> = {
+  live: undefined,
+  stale: styles.sourceStale,
+  csv: styles.sourceCsv,
+  unavailable: styles.sourceUnavailable,
+};
+
 function rowClassName(priceSource: PriceSource, isExpanded: boolean): string {
-  const classes = ['position-row', `price-source--${priceSource}`];
-  if (isExpanded) classes.push('position-row--expanded');
+  const classes = [styles.positionRow];
+  const sourceStyle = PRICE_SOURCE_STYLES[priceSource];
+  if (sourceStyle) classes.push(sourceStyle);
+  if (isExpanded) classes.push(styles.expanded);
   return classes.join(' ');
 }
 
@@ -120,8 +130,8 @@ function priceTooltip(priceSource: PriceSource): string {
 
 function gainClass(gain: number | undefined): string {
   if (gain === undefined) return '';
-  if (gain > 0) return 'gain-positive';
-  if (gain < 0) return 'gain-negative';
+  if (gain > 0) return styles.gainPositive;
+  if (gain < 0) return styles.gainNegative;
   return '';
 }
 

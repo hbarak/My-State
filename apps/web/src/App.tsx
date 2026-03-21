@@ -13,6 +13,7 @@ import {
   type ResolutionRowOutcome,
 } from './import/resolutionAuditStore';
 import { PortfolioDashboard } from './portfolio';
+import styles from './App.module.css';
 
 type PreviewResult = Awaited<ReturnType<typeof domain.importService.previewImport>>;
 type PreviewRow = PreviewResult['validRows'][number];
@@ -235,18 +236,18 @@ export default function App(): JSX.Element {
   const canUpload = bootstrapStatus === 'ready' && !isBusy;
 
   return (
-    <main className="app-shell">
+    <main className={styles.shell}>
       <header>
         <h1>my-stocks</h1>
-        <nav className="view-tabs">
+        <nav className={styles.tabs}>
           <button
-            className={activeView === 'portfolio' ? 'active-button' : 'secondary'}
+            className={activeView === 'portfolio' ? styles.tabActive : styles.tab}
             onClick={() => setActiveView('portfolio')}
           >
             Portfolio
           </button>
           <button
-            className={activeView === 'import' ? 'active-button' : 'secondary'}
+            className={activeView === 'import' ? styles.tabActive : styles.tab}
             onClick={() => setActiveView('import')}
           >
             Import
@@ -257,28 +258,29 @@ export default function App(): JSX.Element {
       {activeView === 'portfolio' && bootstrapStatus === 'ready' && <PortfolioDashboard />}
       {activeView === 'portfolio' && bootstrapStatus === 'loading' && <p>Preparing...</p>}
       {activeView === 'portfolio' && bootstrapStatus === 'error' && (
-        <p className="error">Setup failed: {bootstrapError}</p>
+        <p className={styles.error}>Setup failed: {bootstrapError}</p>
       )}
 
       {activeView === 'import' && (
         <>
-          <section className="card upload-layout">
-            <label htmlFor="csv-upload" className="field-label">
+          <section className={`${styles.card} ${styles.uploadLayout}`}>
+            <label htmlFor="csv-upload" className={styles.fieldLabel}>
               CSV file
             </label>
             <input
               id="csv-upload"
               type="file"
               accept=".csv,text/csv"
+              className={styles.fileInput}
               onChange={onFileChange}
               disabled={!canUpload}
             />
             {bootstrapStatus === 'loading' ? <p>Preparing import setup...</p> : null}
-            {bootstrapStatus === 'error' ? <p className="error">Setup failed: {bootstrapError}</p> : null}
+            {bootstrapStatus === 'error' ? <p className={styles.error}>Setup failed: {bootstrapError}</p> : null}
           </section>
 
           {uploaded ? (
-            <section className="card">
+            <section className={styles.card}>
               <h2>Current File</h2>
               <p>
                 <strong>Source:</strong> {uploaded.sourceName}
@@ -293,20 +295,20 @@ export default function App(): JSX.Element {
           ) : null}
 
           {noticeMessage ? <p>{noticeMessage}</p> : null}
-          {failureMessage ? <p className="error">{failureMessage}</p> : null}
+          {failureMessage ? <p className={styles.error}>{failureMessage}</p> : null}
 
           {status === 'awaiting_error_action' && preview ? (
-            <section className="card">
+            <section className={styles.card}>
               <h2>Action Required</h2>
               <p>
                 Found <strong>{preview.invalidRows.length}</strong> invalid row(s).
                 {preview.validRows.length > 0 ? ` ${preview.validRows.length} valid row(s) are ready to import.` : ''}
               </p>
-              <div className="actions">
-                <button onClick={() => void onContinueWithValidRows()} disabled={isBusy}>
+              <div className={styles.actions}>
+                <button className={styles.primaryButton} onClick={() => void onContinueWithValidRows()} disabled={isBusy}>
                   Continue with valid rows
                 </button>
-                <button className="secondary" onClick={onCancelImport} disabled={isBusy}>
+                <button className={styles.secondaryButton} onClick={onCancelImport} disabled={isBusy}>
                   Cancel import
                 </button>
               </div>
@@ -314,12 +316,12 @@ export default function App(): JSX.Element {
           ) : null}
 
           {preview && (invalidCount > 0 || duplicateCount > 0) ? (
-            <section className="card">
+            <section className={styles.card}>
               <h2>Import Diagnostics</h2>
               {invalidCount > 0 ? (
                 <>
                   <h3>Invalid Row Reasons</h3>
-                  <ul className="reason-list">
+                  <ul className={styles.reasonList}>
                     {reasonSummary.map((reason) => (
                       <li key={reason.code}>
                         <strong>{reason.code}</strong> ({reason.count})
@@ -329,7 +331,7 @@ export default function App(): JSX.Element {
                   </ul>
                   <details>
                     <summary>Show invalid rows ({invalidCount})</summary>
-                    <ul className="row-list">
+                    <ul className={styles.rowList}>
                       {preview.invalidRows.slice(0, 12).map((row) => (
                         <li key={`invalid-${row.rowNumber}`}>
                           Row {row.rowNumber}: {row.errorMessage ?? row.errorCode ?? 'Invalid row'}
@@ -344,7 +346,7 @@ export default function App(): JSX.Element {
               {duplicateCount > 0 ? (
                 <details>
                   <summary>Show duplicate rows ({duplicateCount})</summary>
-                  <ul className="row-list">
+                  <ul className={styles.rowList}>
                     {preview.duplicateRows.slice(0, 12).map((row) => (
                       <li key={`dup-${row.rowNumber}`}>
                         Row {row.rowNumber}: {row.errorMessage ?? row.errorCode ?? previewRowSnippet(row)}
@@ -358,24 +360,24 @@ export default function App(): JSX.Element {
           ) : null}
 
           {commitResult ? (
-            <section className="card">
+            <section className={styles.card}>
               <h2>Import Summary</h2>
-              <div className="summary-grid">
-                <article className="summary-box">
+              <div className={styles.summaryGrid}>
+                <article className={styles.summaryBox}>
                   <h3>Imported</h3>
                   <p>{commitResult.importedTrades}</p>
                 </article>
-                <article className="summary-box">
+                <article className={styles.summaryBox}>
                   <h3>Skipped</h3>
                   <p>{commitResult.skippedRows}</p>
                 </article>
-                <article className="summary-box">
+                <article className={styles.summaryBox}>
                   <h3>Errors</h3>
                   <p>{commitResult.errorRows}</p>
                 </article>
               </div>
-              <div className="actions">
-                <button className="secondary" onClick={() => void onUndoLastImport()} disabled={isBusy}>
+              <div className={styles.actions}>
+                <button className={styles.secondaryButton} onClick={() => void onUndoLastImport()} disabled={isBusy}>
                   Undo last import
                 </button>
               </div>
@@ -383,7 +385,7 @@ export default function App(): JSX.Element {
           ) : null}
 
           {holdingsState ? (
-            <section className="card">
+            <section className={styles.card}>
               <h2>Holdings Reliability</h2>
               <p>
                 <strong>As of:</strong> {holdingsState.asOf ?? 'n/a'}
@@ -392,11 +394,11 @@ export default function App(): JSX.Element {
                 <strong>Positions:</strong> {holdingsState.positionCount}
               </p>
               {holdingsState.insufficientData ? (
-                <p className="warning">Some positions do not include current price, so valuation totals are partial.</p>
+                <p className={styles.warning}>Some positions do not include current price, so valuation totals are partial.</p>
               ) : null}
 
               <h3>Quantity Totals</h3>
-              <ul className="row-list">
+              <ul className={styles.rowList}>
                 {Object.entries(holdingsState.quantityTotalsByCurrency).map(([currency, total]) => (
                   <li key={`qty-${currency}`}>
                     {currency}: {formatNumber(total)}
@@ -406,7 +408,7 @@ export default function App(): JSX.Element {
               </ul>
 
               <h3>Valuation Totals</h3>
-              <ul className="row-list">
+              <ul className={styles.rowList}>
                 {Object.entries(holdingsState.valuationTotalsByCurrency).map(([currency, total]) => (
                   <li key={`val-${currency}`}>
                     {currency}: {formatNumber(total)}

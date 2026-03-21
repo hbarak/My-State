@@ -1,0 +1,59 @@
+.chart {
+  padding: 0;
+}
+
+.chart h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.bars {
+  display: grid;
+  gap: 6px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 100px 1fr 50px;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barTrack {
+  height: 14px;
+  background: var(--color-border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  background: var(--color-brand);
+  border-radius: 7px;
+  transition: width 0.3s ease;
+}
+
+.pct {
+  font-size: var(--font-size-sm);
+  text-align: right;
+  font-weight: var(--font-weight-semibold);
+}
+
+.footnote {
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 80px 1fr 40px;
+  }
+}

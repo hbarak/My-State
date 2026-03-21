@@ -1,0 +1,114 @@
+.summary {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.summaryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.currencyTotals {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.currencyCard {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.currencyCard h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.box {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--color-bg-secondary);
+}
+
+.box h3 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.box p {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.badgeGreen {
+  composes: badge;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.badgeYellow {
+  composes: badge;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.badgeRed {
+  composes: badge;
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
+.gainPositive {
+  color: var(--color-gain);
+}
+
+.gainNegative {
+  color: var(--color-loss);
+}
+
+.warning {
+  color: var(--color-warning-text);
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.priceTimestamp {
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

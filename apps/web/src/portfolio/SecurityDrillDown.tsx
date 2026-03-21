@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EnrichedHoldingsPosition } from '../../../../packages/domain/src/types/marketPrice';
 import type { SecurityPosition, SecurityLot } from '../../../../packages/domain/src/services/SecurityLotQueryService';
 import { domain } from '../domain/bootstrap';
+import styles from './SecurityDrillDown.module.css';
 
 interface SecurityDrillDownProps {
   readonly position: EnrichedHoldingsPosition;
@@ -44,18 +45,18 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
   }, [loadLots]);
 
   return (
-    <tr className="drilldown-row">
+    <tr className={styles.drilldownRow}>
       <td colSpan={8}>
-        <div className="drilldown-panel">
-          <div className="drilldown-header">
+        <div className={styles.panel}>
+          <div className={styles.header}>
             <div>
               <strong>{position.securityName}</strong>
-              {position.ticker && <span className="muted"> ({position.ticker})</span>}
+              {position.ticker && <span className={styles.muted}> ({position.ticker})</span>}
             </div>
-            <button className="secondary drilldown-close" onClick={onClose}>Close</button>
+            <button className={styles.closeButton} onClick={onClose}>Close</button>
           </div>
 
-          <div className="drilldown-summary">
+          <div className={styles.summary}>
             <span>Qty: {formatNum(position.quantity)}</span>
             <span>Avg Cost: {formatMoney(position.costBasis, position.currency)}</span>
             {position.currentPrice !== undefined && (
@@ -71,12 +72,12 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
             )}
           </div>
 
-          {fetchState === 'loading' && <p className="muted">Loading lots...</p>}
+          {fetchState === 'loading' && <p className={styles.muted}>Loading lots...</p>}
 
           {fetchState === 'error' && (
             <div>
-              <p className="error">{error}</p>
-              <button className="secondary" onClick={loadLots}>Retry</button>
+              <p className={styles.errorText}>{error}</p>
+              <button className={styles.retryButton} onClick={loadLots}>Retry</button>
             </div>
           )}
 
@@ -85,7 +86,7 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
           )}
 
           {fetchState === 'ready' && !securityPosition && (
-            <p className="muted">No lot data found.</p>
+            <p className={styles.muted}>No lot data found.</p>
           )}
         </div>
       </td>
@@ -103,16 +104,16 @@ function LotTable({
   readonly currency: string;
 }): JSX.Element {
   return (
-    <table className="lot-table">
+    <table className={styles.lotTable}>
       <thead>
         <tr>
           <th>#</th>
           <th>Date</th>
           <th>Action</th>
-          <th className="num">Qty</th>
-          <th className="num">Cost Basis</th>
-          <th className="num">Value</th>
-          <th className="num">Gain/Loss</th>
+          <th className={styles.num}>Qty</th>
+          <th className={styles.num}>Cost Basis</th>
+          <th className={styles.num}>Value</th>
+          <th className={styles.num}>Gain/Loss</th>
         </tr>
       </thead>
       <tbody>
@@ -125,10 +126,10 @@ function LotTable({
               <td>{lot.fifoOrder}</td>
               <td>{lot.actionDate}</td>
               <td>{lot.actionType}</td>
-              <td className="num">{formatNum(lot.quantity)}</td>
-              <td className="num">{formatMoney(lot.costBasis, currency)}</td>
-              <td className="num">{lotValue !== undefined ? formatMoney(lotValue, currency) : '—'}</td>
-              <td className={`num ${gainClass(lotGain)}`}>
+              <td className={styles.num}>{formatNum(lot.quantity)}</td>
+              <td className={styles.num}>{formatMoney(lot.costBasis, currency)}</td>
+              <td className={styles.num}>{lotValue !== undefined ? formatMoney(lotValue, currency) : '—'}</td>
+              <td className={`${styles.num} ${gainClass(lotGain)}`}>
                 {lotGain !== undefined ? formatSignedMoney(lotGain, currency) : '—'}
               </td>
             </tr>
@@ -141,8 +142,8 @@ function LotTable({
 
 function gainClass(gain: number | undefined): string {
   if (gain === undefined) return '';
-  if (gain > 0) return 'gain-positive';
-  if (gain < 0) return 'gain-negative';
+  if (gain > 0) return styles.gainPositive;
+  if (gain < 0) return styles.gainNegative;
   return '';
 }
 
