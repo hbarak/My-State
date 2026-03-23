@@ -6,8 +6,12 @@ import { MarketPriceService } from '../../../../packages/domain/src/services/Mar
 import { TickerResolverService } from '../../../../packages/domain/src/services/TickerResolverService';
 import { PortfolioPriceEnricher } from '../../../../packages/domain/src/services/PortfolioPriceEnricher';
 import { AccountService, ensureDefaultAccounts } from '../../../../packages/domain/src/services/AccountService';
+import { PsagotApiClient } from '../../../../packages/domain/src/services/PsagotApiClient';
+import { PsagotApiImportHandler } from '../../../../packages/domain/src/services/PsagotApiImportHandler';
+import { PsagotApiSyncService } from '../../../../packages/domain/src/services/PsagotApiSyncService';
 import { BrowserLocalStorageJsonStore } from '../../../../packages/domain/src/stores/jsonStores';
 import { TelemetryService, ConsoleTelemetrySink } from '../../../../packages/domain/src/telemetry';
+import type { HttpPort } from '../../../../packages/domain/src/ports/HttpPort';
 import { YahooFinancePriceFetcher } from '../adapters/YahooFinancePriceFetcher';
 import { YahooFinanceTickerSearcher } from '../adapters/YahooFinanceTickerSearcher';
 
@@ -22,12 +26,44 @@ const priceService = new MarketPriceService(priceFetcher);
 const priceEnricher = new PortfolioPriceEnricher(tickerResolver, priceService);
 const financialStateService = new FinancialStateService(repository, priceEnricher);
 
+const fetchHttpAdapter: HttpPort = {
+  async request(req) {
+    const init: RequestInit = {
+      method: req.method,
+      headers: req.headers,
+    };
+    if (req.body !== undefined) {
+      init.body = JSON.stringify(req.body);
+    }
+    const controller = new AbortController();
+    const timeoutId = req.timeoutMs
+      ? setTimeout(() => controller.abort(), req.timeoutMs)
+      : undefined;
+    init.signal = controller.signal;
+
+    try {
+      const res = await fetch(req.url, init);
+      const body = await res.json();
+      return { status: res.status, body };
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  },
+};
+
+const psagotApiClient = new PsagotApiClient(fetchHttpAdapter);
+const psagotApiImportHandler = new PsagotApiImportHandler();
+const accountService = new AccountService(repository);
+const psagotApiSyncService = new PsagotApiSyncService(repository, accountService, psagotApiImportHandler);
+
 export const domain = {
   repository,
   importService: new PortfolioImportService(repository, telemetry),
   financialStateService,
   securityLotQueryService: new SecurityLotQueryService(repository),
-  accountService: new AccountService(repository),
+  accountService,
+  psagotApiClient,
+  psagotApiSyncService,
 };
 
 export const SPRINT1_PROVIDER_ID = 'provider-web-demo';

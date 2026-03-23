@@ -14,6 +14,7 @@ import {
 } from './import/resolutionAuditStore';
 import { PortfolioDashboard } from './portfolio';
 import { AccountSelector } from './import/AccountSelector';
+import { ApiSyncCard } from './import/ApiSyncCard';
 import type { Account } from '../../../packages/domain/src/types/account';
 import styles from './App.module.css';
 
@@ -90,6 +91,11 @@ export default function App(): JSX.Element {
 
   const onRenameAccount = async (accountId: string, name: string): Promise<void> => {
     await domain.accountService.updateAccount(SPRINT1_PROVIDER_ID, accountId, { name });
+    const updated = await domain.accountService.listByProvider(SPRINT1_PROVIDER_ID);
+    setAccounts(updated);
+  };
+
+  const onAccountsChanged = async (): Promise<void> => {
     const updated = await domain.accountService.listByProvider(SPRINT1_PROVIDER_ID);
     setAccounts(updated);
   };
@@ -300,6 +306,13 @@ export default function App(): JSX.Element {
               onCreate={onCreateAccount}
               onRename={onRenameAccount}
               disabled={!canUpload}
+            />
+          </section>
+
+          <section className={styles.card}>
+            <ApiSyncCard
+              disabled={!canUpload}
+              onAccountsChanged={() => void onAccountsChanged()}
             />
           </section>
 
