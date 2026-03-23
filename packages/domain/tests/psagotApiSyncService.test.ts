@@ -3,6 +3,7 @@ import { LocalPortfolioRepository, type JsonStore } from '../src/repositories';
 import { AccountService } from '../src/services/AccountService';
 import { PsagotApiImportHandler } from '../src/services/PsagotApiImportHandler';
 import { PsagotApiSyncService } from '../src/services/PsagotApiSyncService';
+import { SecurityLotQueryService } from '../src/services/SecurityLotQueryService';
 import type { PsagotBalance, ProviderHoldingRecord } from '../src/types';
 
 class InMemoryStore implements JsonStore {
@@ -46,7 +47,8 @@ function makeFixture() {
   const accountService = new AccountService(repository);
   const handler = new PsagotApiImportHandler();
   const syncService = new PsagotApiSyncService(repository, accountService, handler);
-  return { store, repository, accountService, handler, syncService };
+  const lotQueryService = new SecurityLotQueryService(repository);
+  return { store, repository, accountService, handler, syncService, lotQueryService };
 }
 
 describe('PsagotApiSyncService', () => {
@@ -244,6 +246,64 @@ describe('PsagotApiSyncService', () => {
     const recordsB = await repository.listHoldingRecordsByAccount(PROVIDER_ID, ACCOUNT_B);
     expect(recordsA.filter((r) => r.providerIntegrationId === INTEGRATION_ID)).toHaveLength(1);
     expect(recordsB.filter((r) => r.providerIntegrationId === INTEGRATION_ID)).toHaveLength(1);
+  });
+
+  // ── P2: synced positions are queryable via SecurityLotQueryService ──
+  it('P2: synced positions are queryable by security via SecurityLotQueryService', async () => {
+    const { syncService, lotQueryService } = makeFixture();
+
+    await syncService.syncAccount({
+      balances: [makeBalance({ equityNumber: '5130919', quantity: 100 })],
+      providerId: PROVIDER_ID,
+      providerIntegrationId: INTEGRATION_ID,
+      accountId: ACCOUNT_A,
+      agorotConversion: true,
+    });
+
+    const position = await lotQueryService.getSecurityLots({
+      providerId: PROVIDER_ID,
+      securityId: '5130919',
+    });
+
+    expect(position).not.toBeNull();
+    expect(position?.securityId).toBe('5130919');
+  });
+
+  // ── P5: API records carry the api integration id ──
+  it('P5: synced records have providerIntegrationId matching the api integration', async () => {
+    const { syncService, repository } = makeFixture();
+
+    await syncService.syncAccount({
+      balances: [makeBalance({ equityNumber: '5130919' })],
+      providerId: PROVIDER_ID,
+      providerIntegrationId: INTEGRATION_ID,
+      accountId: ACCOUNT_A,
+      agorotConversion: true,
+    });
+
+    const records = await repository.listHoldingRecordsByAccount(PROVIDER_ID, ACCOUNT_A);
+    expect(records).toHaveLength(1);
+    expect(records[0].providerIntegrationId).toBe(INTEGRATION_ID);
+  });
+
+  // ── P9: raw row audit — import run links to synced records ──
+  it('P9: listHoldingRecordsByImportRun returns all records from the sync run', async () => {
+    const { syncService, repository } = makeFixture();
+
+    const result = await syncService.syncAccount({
+      balances: [
+        makeBalance({ equityNumber: '111', quantity: 50 }),
+        makeBalance({ equityNumber: '222', quantity: 30 }),
+      ],
+      providerId: PROVIDER_ID,
+      providerIntegrationId: INTEGRATION_ID,
+      accountId: ACCOUNT_A,
+      agorotConversion: true,
+    });
+
+    const runRecords = await repository.listHoldingRecordsByImportRun(result.importRun.id);
+    expect(runRecords).toHaveLength(2);
+    expect(runRecords.map((r) => r.securityId).sort()).toEqual(['111', '222']);
   });
 
   // ── Sync summary counts ──

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LocalPortfolioRepository, type JsonStore } from '../src/repositories';
-import { AccountService } from '../src/services/AccountService';
+import { AccountService, ensureDefaultAccounts } from '../src/services/AccountService';
 import type { PsagotAccount } from '../src/types';
 
 class InMemoryStore implements JsonStore {
@@ -127,6 +127,82 @@ describe('Account Auto-Discovery', () => {
 
     const all = await repository.listAccountsByProvider(PROVIDER_ID);
     expect(all).toHaveLength(3);
+  });
+
+  // ── AccountService shared methods ──
+
+  it('AS1: updateAccount throws when account does not exist', async () => {
+    const { service } = makeFixture();
+
+    await expect(
+      service.updateAccount(PROVIDER_ID, 'nonexistent', { name: 'New Name' }),
+    ).rejects.toThrow('Account not found: nonexistent');
+  });
+
+  it('AS2: getById returns account when it exists', async () => {
+    const { service } = makeFixture();
+
+    await service.createAccount({ id: '150-190500', providerId: PROVIDER_ID, name: 'Test' });
+    const account = await service.getById(PROVIDER_ID, '150-190500');
+
+    expect(account).not.toBeNull();
+    expect(account?.id).toBe('150-190500');
+  });
+
+  it('AS3: getById returns null when account does not exist', async () => {
+    const { service } = makeFixture();
+
+    const account = await service.getById(PROVIDER_ID, 'missing');
+    expect(account).toBeNull();
+  });
+
+  it('AS4: listByProvider returns all accounts for provider', async () => {
+    const { service } = makeFixture();
+
+    await service.createAccount({ id: 'acc-1', providerId: PROVIDER_ID, name: 'Account 1' });
+    await service.createAccount({ id: 'acc-2', providerId: PROVIDER_ID, name: 'Account 2' });
+    await service.createAccount({ id: 'acc-3', providerId: 'other-provider', name: 'Other' });
+
+    const accounts = await service.listByProvider(PROVIDER_ID);
+    expect(accounts).toHaveLength(2);
+    expect(accounts.map((a) => a.id).sort()).toEqual(['acc-1', 'acc-2']);
+  });
+
+  it('AS5: ensureDefaultAccounts creates default account for provider with no accounts', async () => {
+    const { repository } = makeFixture();
+
+    await repository.upsertProvider({
+      id: PROVIDER_ID,
+      name: 'Psagot',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await ensureDefaultAccounts(repository);
+
+    const accounts = await repository.listAccountsByProvider(PROVIDER_ID);
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0].id).toBe('default');
+  });
+
+  it('AS6: ensureDefaultAccounts is idempotent — skips provider that already has accounts', async () => {
+    const { repository, service } = makeFixture();
+
+    await repository.upsertProvider({
+      id: PROVIDER_ID,
+      name: 'Psagot',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await service.createAccount({ id: 'existing', providerId: PROVIDER_ID, name: 'Existing' });
+
+    await ensureDefaultAccounts(repository);
+
+    const accounts = await repository.listAccountsByProvider(PROVIDER_ID);
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0].id).toBe('existing');
   });
 
   it('G5: discovery adds new account when API returns previously unknown account', async () => {

@@ -321,4 +321,63 @@ describe('PsagotApiClient', () => {
 
     expect(balances).toEqual([]);
   });
+
+  it('O4: verifyOtp response missing SessionKey throws api_error', async () => {
+    const http = mockHttp((req) => {
+      const body = req.body as Record<string, string>;
+      if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
+      // OTP step returns success body but no SessionKey
+      return { status: 200, body: { SomeOtherField: 'value' } };
+    });
+    const client = new PsagotApiClient(http);
+
+    const pending = await client.initiateLogin(CREDS);
+    await expect(client.verifyOtp(pending, '123456', CREDS)).rejects.toMatchObject({
+      type: 'api_error',
+    });
+  });
+
+  it('A3: fetchAccounts with non-array response returns empty array', async () => {
+    const http = mockHttp((req) => {
+      if (req.method === 'POST') {
+        const body = req.body as Record<string, string>;
+        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
+        return { status: 200, body: { SessionKey: 'auth-key' } };
+      }
+      // API returns object instead of array
+      return { status: 200, body: { unexpected: 'object' } };
+    });
+    const client = new PsagotApiClient(http);
+
+    const pending = await client.initiateLogin(CREDS);
+    const session = await client.verifyOtp(pending, '123', CREDS);
+    const accounts = await client.fetchAccounts(session);
+
+    expect(accounts).toEqual([]);
+  });
+
+  it('B3: fetchBalances network failure throws network_error', async () => {
+    let callCount = 0;
+    const http: HttpPort = {
+      request: vi.fn(async (req: HttpRequest) => {
+        if (req.method === 'POST') {
+          const body = req.body as Record<string, string>;
+          if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
+          return { status: 200, body: { SessionKey: 'auth-key' } };
+        }
+        callCount++;
+        if (callCount === 1) return { status: 200, body: [] }; // fetchAccounts succeeds
+        throw new Error('Network timeout');
+      }),
+    };
+    const client = new PsagotApiClient(http);
+
+    const pending = await client.initiateLogin(CREDS);
+    const session = await client.verifyOtp(pending, '123', CREDS);
+    await client.fetchAccounts(session); // succeeds
+
+    await expect(client.fetchBalances(session, '150-190500')).rejects.toMatchObject({
+      type: 'network_error',
+    });
+  });
 });
