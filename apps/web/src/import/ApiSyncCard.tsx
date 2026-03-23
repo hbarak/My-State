@@ -28,6 +28,7 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
   const [phase, setPhase] = useState<SyncPhase>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpAttempts, setOtpAttempts] = useState(0);
   const [syncSummary, setSyncSummary] = useState<ApiSyncSummary | null>(null);
   const [accounts, setAccounts] = useState<readonly Account[]>([]);
   const [newAccountCount, setNewAccountCount] = useState(0);
@@ -44,6 +45,7 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
     setErrorMessage(null);
     setOtpError(null);
     setSyncSummary(null);
+    setOtpAttempts(0);
   }, []);
 
   const handleCredentialsSubmit = useCallback(async (credentials: PsagotCredentials) => {
@@ -111,6 +113,12 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
     } catch (err) {
       const apiErr = err as PsagotApiError;
       if (apiErr.type === 'otp_invalid') {
+        const nextAttempts = otpAttempts + 1;
+        setOtpAttempts(nextAttempts);
+        if (nextAttempts >= 3) {
+          handleSyncError(new Error('Too many incorrect attempts. Please start over.'));
+          return;
+        }
         setOtpError(apiErr.message);
         setPhase('awaiting_otp');
         return;
@@ -122,13 +130,14 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
       }
       handleSyncError(err);
     }
-  }, [onAccountsChanged]);
+  }, [onAccountsChanged, otpAttempts]);
 
   const handleOtpCancel = useCallback(() => {
     pendingSessionRef.current = null;
     credentialsRef.current = null;
     setPhase('idle');
     setOtpError(null);
+    setOtpAttempts(0);
   }, []);
 
   const handleOtpResend = useCallback(async () => {
@@ -147,6 +156,7 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
   const handleRetry = useCallback(() => {
     setPhase('entering_credentials');
     setErrorMessage(null);
+    setOtpAttempts(0);
   }, []);
 
   const handleSyncAgain = useCallback(() => {

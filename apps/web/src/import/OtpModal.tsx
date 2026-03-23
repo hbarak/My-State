@@ -55,10 +55,13 @@ export function OtpModal({
     inputRef.current?.focus();
   }, []);
 
-  // Clear code on error
+  // Clear code on error; expire countdown on otp_expired
   useEffect(() => {
     if (error) {
       setCode('');
+      if (error.toLowerCase().includes('expired')) {
+        setSecondsLeft(0);
+      }
       inputRef.current?.focus();
     }
   }, [error]);
@@ -67,11 +70,11 @@ export function OtpModal({
     (value: string) => {
       const digits = value.replace(/\D/g, '').slice(0, 6);
       setCode(digits);
-      if (digits.length === 6 && !expired) {
+      if (digits.length === 6 && !expired && !verifying) {
         onSubmit(digits);
       }
     },
-    [expired, onSubmit],
+    [expired, verifying, onSubmit],
   );
 
   const handleSubmit = (e: FormEvent): void => {
