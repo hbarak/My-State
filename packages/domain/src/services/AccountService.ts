@@ -1,5 +1,16 @@
-import type { Account } from '../types';
+import type { Account, PsagotAccount } from '../types';
 import type { PortfolioRepository } from '../repositories';
+
+interface DiscoverAccountsParams {
+  readonly providerId: string;
+  readonly apiAccounts: readonly PsagotAccount[];
+}
+
+interface DiscoveryResult {
+  readonly created: Account[];
+  readonly updated: Account[];
+  readonly unchanged: Account[];
+}
 
 interface CreateAccountParams {
   readonly id: string;
@@ -39,6 +50,7 @@ export class AccountService {
     const updated: Account = {
       ...existing,
       name: params.name,
+      isNameCustomized: true,
       updatedAt: new Date().toISOString(),
     };
 
@@ -52,6 +64,48 @@ export class AccountService {
 
   async listByProvider(providerId: string): Promise<Account[]> {
     return this.repository.listAccountsByProvider(providerId);
+  }
+
+  async discoverAccounts(params: DiscoverAccountsParams): Promise<DiscoveryResult> {
+    const now = new Date().toISOString();
+    const created: Account[] = [];
+    const updated: Account[] = [];
+    const unchanged: Account[] = [];
+
+    for (const apiAccount of params.apiAccounts) {
+      const existing = await this.repository.getAccount(params.providerId, apiAccount.key);
+      const displayName = apiAccount.nickname || apiAccount.key;
+
+      if (!existing) {
+        const account: Account = {
+          id: apiAccount.key,
+          providerId: params.providerId,
+          name: displayName,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await this.repository.upsertAccount(account);
+        created.push(account);
+      } else if (this.shouldUpdateName(existing, apiAccount)) {
+        const account: Account = {
+          ...existing,
+          name: displayName,
+          updatedAt: now,
+        };
+        await this.repository.upsertAccount(account);
+        updated.push(account);
+      } else {
+        unchanged.push(existing);
+      }
+    }
+
+    return { created, updated, unchanged };
+  }
+
+  private shouldUpdateName(existing: Account, apiAccount: PsagotAccount): boolean {
+    if (existing.isNameCustomized) return false;
+    const apiDisplayName = apiAccount.nickname || apiAccount.key;
+    return existing.name !== apiDisplayName;
   }
 }
 

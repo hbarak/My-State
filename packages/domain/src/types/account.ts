@@ -9,6 +9,7 @@ export interface Account {
   readonly id: string;
   readonly providerId: string;
   readonly name: string;
+  readonly isNameCustomized?: boolean;
   readonly createdAt: ISODateTime;
   readonly updatedAt: ISODateTime;
 }

@@ -9,7 +9,8 @@
   "scripts": {
     "dev:web": "npm run dev -w @my-stocks/web",
     "build:web": "npm run build -w @my-stocks/web",
-    "test": "npm run test -w @my-stocks/domain"
+    "test": "npm run test -w @my-stocks/domain",
+    "test:e2e": "npm run test:e2e -w @my-stocks/web"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.0"

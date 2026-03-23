@@ -33,6 +33,7 @@ export const domain = {
 export const SPRINT1_PROVIDER_ID = 'provider-web-demo';
 export const SPRINT1_TRADES_INTEGRATION_ID = 'integration-web-demo-trades-csv';
 export const SPRINT1_HOLDINGS_INTEGRATION_ID = 'integration-web-demo-holdings-csv';
+export const PSAGOT_API_INTEGRATION_ID = 'psagot-api-holdings';
 
 export async function ensureSprintOnePreviewSetup(): Promise<void> {
   const now = nowIso();
@@ -104,6 +105,23 @@ export async function ensureSprintOnePreviewSetup(): Promise<void> {
         SELL: 'sell',
       },
     },
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // R4 shortcut: API integration shares demo provider. Replace with dedicated
+  // Psagot provider when multi-broker support is added (R5).
+  await repository.upsertIntegration({
+    id: PSAGOT_API_INTEGRATION_ID,
+    providerId: SPRINT1_PROVIDER_ID,
+    kind: 'api',
+    dataDomain: 'holdings',
+    communicationMethod: 'api_pull',
+    syncMode: 'manual',
+    direction: 'ingest',
+    adapterKey: 'psagot-api-v2',
+    isEnabled: true,
+    notes: 'Psagot trade1.psagot.co.il REST API — manual sync with SMS OTP',
     createdAt: now,
     updatedAt: now,
   });
