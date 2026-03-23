@@ -306,6 +306,73 @@ describe('PsagotApiSyncService', () => {
     expect(runRecords.map((r) => r.securityId).sort()).toEqual(['111', '222']);
   });
 
+  // ── Undo-after-update is destructive (documented behavior) ──
+  it('undo after update soft-deletes updated records (undo is destructive for updated positions)', async () => {
+    const { syncService, repository } = makeFixture();
+
+    // First sync: create a position
+    await syncService.syncAccount({
+      balances: [makeBalance({ equityNumber: '5130919', quantity: 100 })],
+      providerId: PROVIDER_ID,
+      providerIntegrationId: INTEGRATION_ID,
+      accountId: ACCOUNT_A,
+      agorotConversion: true,
+    });
+
+    // Second sync: update the same position (quantity changes)
+    const result = await syncService.syncAccount({
+      balances: [makeBalance({ equityNumber: '5130919', quantity: 95 })],
+      providerId: PROVIDER_ID,
+      providerIntegrationId: INTEGRATION_ID,
+      accountId: ACCOUNT_A,
+      agorotConversion: true,
+    });
+
+    expect(result.updatedRecords).toBe(1);
+
+    // Undo second sync — updated record gets the new runId, so undo soft-deletes it
+    await syncService.undoLastSync(INTEGRATION_ID);
+
+    const records = await repository.listHoldingRecordsByAccount(PROVIDER_ID, ACCOUNT_A);
+    const apiRecords = records.filter((r) => r.providerIntegrationId === INTEGRATION_ID);
+    // Undo is destructive: updated record is soft-deleted, not rolled back to qty=100
+    expect(apiRecords).toHaveLength(0);
+  });
+
+  // ── syncAllAccounts mid-sequence failure is isolated ──
+  it('syncAllAccounts continues after per-account failure and collects error', async () => {
+    const { repository, accountService, handler } = makeFixture();
+
+    // Create a syncService whose handler throws on the first account
+    let callCount = 0;
+    const failingHandler = {
+      mapBalancesToHoldingRecords: (params: Parameters<typeof handler.mapBalancesToHoldingRecords>[0]) => {
+        callCount++;
+        if (callCount === 1) throw { type: 'api_error', message: 'simulated failure' };
+        return handler.mapBalancesToHoldingRecords(params);
+      },
+    } as typeof handler;
+
+    const syncService = new PsagotApiSyncService(repository, accountService, failingHandler);
+
+    const summary = await syncService.syncAllAccounts({
+      accountBalances: [
+        { accountId: ACCOUNT_A, balances: [makeBalance({ equityNumber: '111' })] },
+        { accountId: ACCOUNT_B, balances: [makeBalance({ equityNumber: '222' })] },
+      ],
+      providerId: PROVIDER_ID,
+      providerIntegrationId: INTEGRATION_ID,
+      agorotConversion: true,
+    });
+
+    // Account A failed, account B succeeded
+    expect(summary.errors).toHaveLength(1);
+    expect(summary.errors[0].accountId).toBe(ACCOUNT_A);
+    expect(summary.errors[0].error.type).toBe('api_error');
+    expect(summary.accountsSynced).toBe(1);
+    expect(summary.totalNewRecords).toBe(1);
+  });
+
   // ── Sync summary counts ──
   it('syncAccount returns correct new/updated/removed counts', async () => {
     const { syncService } = makeFixture();

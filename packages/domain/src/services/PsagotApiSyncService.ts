@@ -176,7 +176,7 @@ export class PsagotApiSyncService {
       } catch (err) {
         errors.push({
           accountId,
-          error: err as PsagotApiError,
+          error: toPsagotApiError(err),
         });
       }
     }
@@ -191,6 +191,15 @@ export class PsagotApiSyncService {
     };
   }
 
+  /**
+   * Undo the last successful sync for the given integration.
+   *
+   * NOTE: Undo behavior for updated records is destructive. Records that were
+   * updated (not newly created) by the sync share the import run ID and will be
+   * soft-deleted by undo, rather than restored to their pre-sync values. The
+   * user must re-sync to recover current positions. This is intentional for R4
+   * (DECISION_LOG #34 / D-API-07: partial-sync is non-rollback by design).
+   */
   async undoLastSync(providerIntegrationId: string): Promise<PortfolioImportRun | null> {
     const lastRun = await this.repository.getLastSuccessfulImportRun(providerIntegrationId);
     if (!lastRun || !lastRun.isUndoable) return null;
@@ -216,4 +225,19 @@ export class PsagotApiSyncService {
 
     return undone;
   }
+}
+
+function toPsagotApiError(err: unknown): PsagotApiError {
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    'type' in err &&
+    'message' in err &&
+    typeof (err as Record<string, unknown>).type === 'string' &&
+    typeof (err as Record<string, unknown>).message === 'string'
+  ) {
+    return err as PsagotApiError;
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  return { type: 'api_error', message };
 }

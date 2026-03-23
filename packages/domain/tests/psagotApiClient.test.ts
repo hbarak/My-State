@@ -322,7 +322,21 @@ describe('PsagotApiClient', () => {
     expect(balances).toEqual([]);
   });
 
-  it('O4: verifyOtp response missing SessionKey throws api_error', async () => {
+  it('O4: expired OTP throws otp_expired error', async () => {
+    const http = mockHttp((req) => {
+      const body = req.body as Record<string, string>;
+      if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
+      return { status: 200, body: { Error: 'Token has expired' } };
+    });
+    const client = new PsagotApiClient(http);
+
+    const pending = await client.initiateLogin(CREDS);
+    await expect(client.verifyOtp(pending, '123456', CREDS)).rejects.toMatchObject({
+      type: 'otp_expired',
+    });
+  });
+
+  it('O5: verifyOtp response missing SessionKey throws api_error', async () => {
     const http = mockHttp((req) => {
       const body = req.body as Record<string, string>;
       if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
