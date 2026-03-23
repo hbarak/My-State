@@ -48,7 +48,7 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
   return (
     <tr className={styles.drilldownRow}>
       <td colSpan={8}>
-        <div className={styles.panel}>
+        <div className={styles.panel} data-testid="security-drilldown">
           <div className={styles.header}>
             <div>
               <strong>{position.securityName}</strong>
@@ -68,7 +68,7 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
             )}
             {position.unrealizedGain !== undefined && (
               <span className={gainClass(position.unrealizedGain)}>
-                Gain: {formatSignedMoney(position.unrealizedGain, position.currency)}
+                Gain: {gainArrow(position.unrealizedGain)} {formatSignedMoney(position.unrealizedGain, position.currency)}
               </span>
             )}
           </div>
@@ -148,7 +148,7 @@ function LotTable({
               <td className={styles.num}>{formatMoney(lot.costBasis, currency)}</td>
               <td className={styles.num}>{lotValue !== undefined ? formatMoney(lotValue, currency) : '—'}</td>
               <td className={`${styles.num} ${gainClass(lotGain)}`}>
-                {lotGain !== undefined ? formatSignedMoney(lotGain, currency) : '—'}
+                {lotGain !== undefined ? `${gainArrow(lotGain)} ${formatSignedMoney(lotGain, currency)}` : '—'}
               </td>
             </tr>
           );
@@ -162,6 +162,13 @@ function gainClass(gain: number | undefined): string {
   if (gain === undefined) return '';
   if (gain > 0) return styles.gainPositive;
   if (gain < 0) return styles.gainNegative;
+  return '';
+}
+
+function gainArrow(gain: number | undefined): string {
+  if (gain === undefined) return '';
+  if (gain > 0) return '\u25B2';
+  if (gain < 0) return '\u25BC';
   return '';
 }
 

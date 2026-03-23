@@ -38,24 +38,24 @@ export function PortfolioSummary({ enrichedState }: PortfolioSummaryProps): JSX.
             <div key={currency} className={styles.currencyCard}>
               <h3>{currency}</h3>
               <div className={styles.grid}>
-                <div className={styles.box}>
+                <div className={styles.box} data-testid="summary-value">
                   <h3>Value</h3>
                   <p>{value !== undefined ? formatCurrency(value, currency) : '—'}</p>
                 </div>
-                <div className={styles.box}>
+                <div className={styles.box} data-testid="summary-cost">
                   <h3>Cost</h3>
                   <p>{formatCurrency(cost, currency)}</p>
                 </div>
-                <div className={styles.box}>
+                <div className={`${styles.box} ${gainBoxClass(gain)}`} data-testid="summary-gain-loss">
                   <h3>Gain / Loss</h3>
                   <p className={gainClass(gain)}>
-                    {gain !== undefined ? formatSignedCurrency(gain, currency) : '—'}
+                    {gain !== undefined ? `${gainArrow(gain)} ${formatSignedCurrency(gain, currency)}` : '—'}
                   </p>
                 </div>
-                <div className={styles.box}>
+                <div className={`${styles.box} ${gainBoxClass(gain)}`} data-testid="summary-gain-pct">
                   <h3>Gain %</h3>
                   <p className={gainClass(gain)}>
-                    {gainPct !== undefined ? formatPct(gainPct) : '—'}
+                    {gainPct !== undefined ? `${gainArrow(gain)} ${formatPct(gainPct)}` : '—'}
                   </p>
                 </div>
               </div>
@@ -89,6 +89,20 @@ function gainClass(gain: number | undefined): string {
   if (gain === undefined) return '';
   if (gain > 0) return styles.gainPositive;
   if (gain < 0) return styles.gainNegative;
+  return '';
+}
+
+function gainBoxClass(gain: number | undefined): string {
+  if (gain === undefined) return '';
+  if (gain > 0) return styles.gainBox;
+  if (gain < 0) return styles.lossBox;
+  return '';
+}
+
+function gainArrow(gain: number | undefined): string {
+  if (gain === undefined) return '';
+  if (gain > 0) return '\u25B2';
+  if (gain < 0) return '\u25BC';
   return '';
 }
 

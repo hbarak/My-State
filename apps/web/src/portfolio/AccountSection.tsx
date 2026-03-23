@@ -18,7 +18,7 @@ export function AccountSection({
   defaultOpen = false,
 }: AccountSectionProps): JSX.Element {
   return (
-    <details className={styles.section} open={defaultOpen || undefined}>
+    <details className={styles.section} open={defaultOpen || undefined} data-testid="account-section">
       <summary className={styles.summary}>
         <span className={styles.accountName}>{subtotal.accountName}</span>
         <span className={styles.subtotals}>

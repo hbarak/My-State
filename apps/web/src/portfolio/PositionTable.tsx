@@ -91,10 +91,10 @@ function PositionRow({
         <td className={styles.num}>{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
         <td className={styles.num}>{position.currentValue !== undefined ? formatMoney(position.currentValue, position.currency) : '—'}</td>
         <td className={`${styles.num} ${gainClass(position.unrealizedGain)}`}>
-          {position.unrealizedGain !== undefined ? formatSignedMoney(position.unrealizedGain, position.currency) : '—'}
+          {position.unrealizedGain !== undefined ? `${gainArrow(position.unrealizedGain)} ${formatSignedMoney(position.unrealizedGain, position.currency)}` : '—'}
         </td>
         <td className={`${styles.num} ${gainClass(position.unrealizedGain)}`}>
-          {position.unrealizedGainPct !== undefined ? formatPct(position.unrealizedGainPct) : '—'}
+          {position.unrealizedGainPct !== undefined ? `${gainArrow(position.unrealizedGain)} ${formatPct(position.unrealizedGainPct)}` : '—'}
         </td>
       </tr>
       {isExpanded && (
@@ -132,6 +132,13 @@ function gainClass(gain: number | undefined): string {
   if (gain === undefined) return '';
   if (gain > 0) return styles.gainPositive;
   if (gain < 0) return styles.gainNegative;
+  return '';
+}
+
+function gainArrow(gain: number | undefined): string {
+  if (gain === undefined) return '';
+  if (gain > 0) return '\u25B2';
+  if (gain < 0) return '\u25BC';
   return '';
 }
 

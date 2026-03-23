@@ -25,6 +25,10 @@
   --color-error-text: #991b1b;
   --color-gain: #166534;
   --color-loss: #991b1b;
+  --color-gain-bg: #f0fdf4;              /* green-50, subtle tint for summary cards */
+  --color-loss-bg: #fef2f2;              /* red-50, subtle tint for summary cards */
+  --color-gain-icon: #16a34a;            /* green-600, for directional arrows */
+  --color-loss-icon: #dc2626;            /* red-600, for directional arrows */
 
   /* ── Typography ── */
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
