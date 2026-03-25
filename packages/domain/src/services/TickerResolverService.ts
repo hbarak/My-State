@@ -1,6 +1,6 @@
 import type { PortfolioRepository } from '../repositories/portfolioRepository';
 import type { TickerSearcher } from '../ports/TickerSearcher';
-import type { TickerMapping } from '../types/marketPrice';
+import type { TickerMapping, TickerMappingStatus } from '../types/marketPrice';
 
 export interface SecurityInput {
   readonly securityId: string;
@@ -24,6 +24,32 @@ export class TickerResolverService {
     }
 
     return result;
+  }
+
+  async resetMapping(securityId: string): Promise<void> {
+    await this.repository.deleteTickerMapping(securityId);
+  }
+
+  async listMappingsWithStatus(): Promise<readonly TickerMappingStatus[]> {
+    const mappings = await this.repository.listTickerMappings();
+    return mappings.map((m): TickerMappingStatus => {
+      let status: 'resolved' | 'failed' | 'manual';
+      if (m.resolvedBy === 'manual') {
+        status = 'manual';
+      } else if (m.ticker !== null) {
+        status = 'resolved';
+      } else {
+        status = 'failed';
+      }
+      return {
+        securityId: m.securityId,
+        securityName: m.securityName,
+        ticker: m.ticker,
+        resolvedBy: m.resolvedBy,
+        resolvedAt: m.resolvedAt,
+        status,
+      };
+    });
   }
 
   async setManualMapping(

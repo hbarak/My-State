@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TickerResolverService } from '../src/services/TickerResolverService';
 import type { TickerSearcher } from '../src/ports/TickerSearcher';
 import type { PortfolioRepository } from '../src/repositories/portfolioRepository';
-import type { TickerMapping } from '../src/types/marketPrice';
+import type { TickerMapping, TickerMappingStatus } from '../src/types/marketPrice';
 import { InMemoryJsonStore } from '../src/stores/jsonStores';
 import { LocalPortfolioRepository } from '../src/repositories/portfolioRepository';
 
@@ -223,5 +223,199 @@ describe('TickerResolverService', () => {
     expect(calls).toHaveLength(2); // only one new search call
     expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
     expect(result.get('629014')!.ticker).toBe('TEVA.TA');
+  });
+
+  // -----------------------------------------------------------------------
+  // deleteTickerMapping (repository level)
+  // -----------------------------------------------------------------------
+
+  describe('deleteTickerMapping', () => {
+    it('deletes an existing mapping by securityId', async () => {
+      const repo = makeRepo();
+      const mapping: TickerMapping = {
+        securityId: 'sec-1',
+        securityName: 'Acme Corp',
+        ticker: 'ACME',
+        resolvedAt: '2026-01-01T00:00:00.000Z',
+        resolvedBy: 'auto',
+      };
+      await repo.upsertTickerMapping(mapping);
+
+      // Verify it exists
+      expect(await repo.getTickerMapping('sec-1')).not.toBeNull();
+
+      await repo.deleteTickerMapping('sec-1');
+
+      expect(await repo.getTickerMapping('sec-1')).toBeNull();
+    });
+
+    it('is a no-op when securityId does not exist', async () => {
+      const repo = makeRepo();
+      // Should not throw
+      await expect(repo.deleteTickerMapping('non-existent')).resolves.toBeUndefined();
+    });
+
+    it('does not affect other mappings when deleting one', async () => {
+      const repo = makeRepo();
+      const mappingA: TickerMapping = {
+        securityId: 'sec-A',
+        securityName: 'Alpha Corp',
+        ticker: 'ALPH',
+        resolvedAt: '2026-01-01T00:00:00.000Z',
+        resolvedBy: 'auto',
+      };
+      const mappingB: TickerMapping = {
+        securityId: 'sec-B',
+        securityName: 'Beta Corp',
+        ticker: 'BETA',
+        resolvedAt: '2026-01-01T00:00:00.000Z',
+        resolvedBy: 'auto',
+      };
+      await repo.upsertTickerMapping(mappingA);
+      await repo.upsertTickerMapping(mappingB);
+
+      await repo.deleteTickerMapping('sec-A');
+
+      expect(await repo.getTickerMapping('sec-A')).toBeNull();
+      expect(await repo.getTickerMapping('sec-B')).not.toBeNull();
+      expect((await repo.getTickerMapping('sec-B'))!.ticker).toBe('BETA');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // resetMapping
+  // -----------------------------------------------------------------------
+
+  describe('resetMapping', () => {
+    it('deletes a cached auto-resolved mapping so next resolveAll re-invokes searchTicker', async () => {
+      const repo = makeRepo();
+      const { searcher, calls } = trackingSearcher({ 'דלק קבוצה': 'DLEKG.TA' });
+      const service = new TickerResolverService(repo, searcher);
+
+      // First resolve — caches the result
+      await service.resolveAll([{ securityId: '1084128', securityName: 'דלק קבוצה' }]);
+      expect(calls).toHaveLength(1);
+
+      // Reset the mapping
+      await service.resetMapping('1084128');
+
+      // Mapping should no longer be in repository
+      expect(await repo.getTickerMapping('1084128')).toBeNull();
+
+      // Next resolve should re-invoke searchTicker
+      const result = await service.resolveAll([{ securityId: '1084128', securityName: 'דלק קבוצה' }]);
+      expect(calls).toHaveLength(2);
+      expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
+    });
+
+    it('is a no-op when securityId does not exist — does not throw', async () => {
+      const repo = makeRepo();
+      const searcher = stubSearcher({});
+      const service = new TickerResolverService(repo, searcher);
+
+      await expect(service.resetMapping('non-existent')).resolves.toBeUndefined();
+    });
+
+    it('deletes a manual mapping — next resolve triggers auto-search', async () => {
+      const repo = makeRepo();
+      const { searcher, calls } = trackingSearcher({ 'דלק קבוצה': 'DLEKG.TA' });
+      const service = new TickerResolverService(repo, searcher);
+
+      // Set manual mapping
+      await service.setManualMapping('1084128', 'דלק קבוצה', 'DELEK.MANUAL');
+      expect(calls).toHaveLength(0);
+
+      // Reset it
+      await service.resetMapping('1084128');
+      expect(await repo.getTickerMapping('1084128')).toBeNull();
+
+      // Next resolve should auto-search
+      const result = await service.resolveAll([{ securityId: '1084128', securityName: 'דלק קבוצה' }]);
+      expect(calls).toHaveLength(1);
+      expect(result.get('1084128')!.resolvedBy).toBe('auto');
+      expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // listMappingsWithStatus
+  // -----------------------------------------------------------------------
+
+  describe('listMappingsWithStatus', () => {
+    it('returns empty array when no mappings exist', async () => {
+      const repo = makeRepo();
+      const searcher = stubSearcher({});
+      const service = new TickerResolverService(repo, searcher);
+
+      const statuses = await service.listMappingsWithStatus();
+      expect(statuses).toEqual([]);
+    });
+
+    it('returns status "resolved" for auto-resolved mapping with a ticker', async () => {
+      const repo = makeRepo();
+      const searcher = stubSearcher({ 'דלק קבוצה': 'DLEKG.TA' });
+      const service = new TickerResolverService(repo, searcher);
+
+      await service.resolveAll([{ securityId: '1084128', securityName: 'דלק קבוצה' }]);
+
+      const statuses = await service.listMappingsWithStatus();
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].securityId).toBe('1084128');
+      expect(statuses[0].securityName).toBe('דלק קבוצה');
+      expect(statuses[0].ticker).toBe('DLEKG.TA');
+      expect(statuses[0].resolvedBy).toBe('auto');
+      expect(statuses[0].status).toBe('resolved');
+    });
+
+    it('returns status "failed" for auto-resolved mapping with null ticker', async () => {
+      const repo = makeRepo();
+      const searcher = stubSearcher({}); // no match
+      const service = new TickerResolverService(repo, searcher);
+
+      await service.resolveAll([{ securityId: '9999', securityName: 'Unknown Corp' }]);
+
+      const statuses = await service.listMappingsWithStatus();
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].securityId).toBe('9999');
+      expect(statuses[0].ticker).toBeNull();
+      expect(statuses[0].resolvedBy).toBe('auto');
+      expect(statuses[0].status).toBe('failed');
+    });
+
+    it('returns status "manual" for manually-set mapping', async () => {
+      const repo = makeRepo();
+      const searcher = stubSearcher({});
+      const service = new TickerResolverService(repo, searcher);
+
+      await service.setManualMapping('1084128', 'דלק קבוצה', 'DELEK.TA');
+
+      const statuses = await service.listMappingsWithStatus();
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].securityId).toBe('1084128');
+      expect(statuses[0].ticker).toBe('DELEK.TA');
+      expect(statuses[0].resolvedBy).toBe('manual');
+      expect(statuses[0].status).toBe('manual');
+    });
+
+    it('returns all mappings across multiple securities with correct status derivation', async () => {
+      const repo = makeRepo();
+      const searcher = stubSearcher({ 'דלק קבוצה': 'DLEKG.TA' }); // 'Unknown' has no match
+      const service = new TickerResolverService(repo, searcher);
+
+      // Auto-resolved with match
+      await service.resolveAll([{ securityId: 'sec-1', securityName: 'דלק קבוצה' }]);
+      // Auto-resolved with no match (null ticker)
+      await service.resolveAll([{ securityId: 'sec-2', securityName: 'Unknown' }]);
+      // Manual
+      await service.setManualMapping('sec-3', 'Acme', 'ACME');
+
+      const statuses = await service.listMappingsWithStatus();
+      expect(statuses).toHaveLength(3);
+
+      const byId = Object.fromEntries(statuses.map((s) => [s.securityId, s]));
+      expect(byId['sec-1'].status).toBe('resolved');
+      expect(byId['sec-2'].status).toBe('failed');
+      expect(byId['sec-3'].status).toBe('manual');
+    });
   });
 });

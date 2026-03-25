@@ -8,6 +8,17 @@ export interface ImportRunSummary {
   tradeCount: number;
 }
 
+export interface ImportRunListItem {
+  /** The full import run record. */
+  readonly run: PortfolioImportRun;
+  /** Source type derived from the ProviderIntegration's communicationMethod. */
+  readonly sourceType: 'csv' | 'api';
+  /** Account name for display (resolved from Account entity, falls back to accountId). */
+  readonly accountLabel: string;
+  /** Row counts (total, valid, invalid, duplicate). Null if raw rows not yet stored (legacy runs). */
+  readonly rawRowCounts: { total: number; valid: number; invalid: number; duplicate: number } | null;
+}
+
 export interface TotalHoldingsPosition {
   key: string;
   providerId: string;

@@ -373,6 +373,117 @@ describe('PsagotApiSyncService', () => {
     expect(summary.totalNewRecords).toBe(1);
   });
 
+  // ── S5-DEV-03: Raw rows stored on sync ──
+  it('S5-raw-1: after syncAccount, listRawRowsByImportRun returns one row per input balance', async () => {
+    const { syncService, repository } = makeFixture();
+
+    const result = await syncService.syncAccount({
+      balances: [
+        makeBalance({ equityNumber: '111', quantity: 50 }),
+        makeBalance({ equityNumber: '222', quantity: 30 }),
+      ],
+      providerId: PROVIDER_ID,
+      providerIntegrationId: INTEGRATION_ID,
+      accountId: ACCOUNT_A,
+      agorotConversion: true,
+    });
+
+    const rawRows = await repository.listRawRowsByImportRun(result.importRun.id);
+    expect(rawRows).toHaveLength(2);
+
+    // Each row payload should contain the serialized PsagotBalance JSON
+    const payloads = rawRows.map((r) => JSON.parse(r.rowPayload) as Record<string, unknown>);
+    const equityNumbers = payloads.map((p) => p['equityNumber']).sort();
+    expect(equityNumbers).toEqual(['111', '222']);
+
+    // importRunId and integration metadata should match
+    for (const row of rawRows) {
+      expect(row.importRunId).toBe(result.importRun.id);
+      expect(row.providerId).toBe(PROVIDER_ID);
+      expect(row.providerIntegrationId).toBe(INTEGRATION_ID);
+    }
+  });
+
+  // ── S5-DEV-03: Invalid balances stored as raw rows ──
+  it('S5-raw-2: invalid balance (quantity 0) appears as raw row with isValid false and errorCode', async () => {
+    const { syncService, repository } = makeFixture();
+
+    const result = await syncService.syncAccount({
+      balances: [
+        makeBalance({ equityNumber: '111', quantity: 50 }),
+        makeBalance({ equityNumber: 'INVALID', quantity: 0 }),
+      ],
+      providerId: PROVIDER_ID,
+      providerIntegrationId: INTEGRATION_ID,
+      accountId: ACCOUNT_A,
+      agorotConversion: true,
+    });
+
+    const rawRows = await repository.listRawRowsByImportRun(result.importRun.id);
+    expect(rawRows).toHaveLength(2);
+
+    const invalidRow = rawRows.find((r) => {
+      const p = JSON.parse(r.rowPayload) as Record<string, unknown>;
+      return p['equityNumber'] === 'INVALID';
+    });
+    expect(invalidRow).toBeDefined();
+    expect(invalidRow!.isValid).toBe(false);
+    expect(invalidRow!.errorCode).toBe('INVALID_QUANTITY');
+
+    const validRow = rawRows.find((r) => {
+      const p = JSON.parse(r.rowPayload) as Record<string, unknown>;
+      return p['equityNumber'] === '111';
+    });
+    expect(validRow).toBeDefined();
+    expect(validRow!.isValid).toBe(true);
+    expect(validRow!.errorCode).toBeUndefined();
+  });
+
+  // ── S5-DEV-03: Raw rows stored before holding records (audit trail) ──
+  it('S5-raw-3: raw rows are persisted even if upsertHoldingRecords throws', async () => {
+    const { repository, accountService, handler } = makeFixture();
+
+    // Wrap repository to throw on upsertHoldingRecords
+    let upsertCalled = false;
+    const failingRepository = new Proxy(repository, {
+      get(target, prop) {
+        if (prop === 'upsertHoldingRecords') {
+          return async () => {
+            upsertCalled = true;
+            throw new Error('simulated upsert failure');
+          };
+        }
+        return (target as unknown as Record<string | symbol, unknown>)[prop];
+      },
+    });
+
+    const syncService = new PsagotApiSyncService(
+      failingRepository as typeof repository,
+      accountService,
+      handler,
+    );
+
+    await expect(
+      syncService.syncAccount({
+        balances: [makeBalance({ equityNumber: '111', quantity: 50 })],
+        providerId: PROVIDER_ID,
+        providerIntegrationId: INTEGRATION_ID,
+        accountId: ACCOUNT_A,
+        agorotConversion: true,
+      }),
+    ).rejects.toThrow('simulated upsert failure');
+
+    expect(upsertCalled).toBe(true);
+
+    // Raw rows should still be in the repository despite the upsert failure
+    const runs = await repository.listImportRuns();
+    expect(runs.length).toBeGreaterThan(0);
+    const runId = runs[0]!.id;
+    const rawRows = await repository.listRawRowsByImportRun(runId);
+    expect(rawRows).toHaveLength(1);
+    expect(rawRows[0]!.isValid).toBe(true);
+  });
+
   // ── Sync summary counts ──
   it('syncAccount returns correct new/updated/removed counts', async () => {
     const { syncService } = makeFixture();

@@ -73,6 +73,7 @@ export interface PortfolioRepository {
   upsertTickerMapping(mapping: TickerMapping): Promise<void>;
   getTickerMapping(securityId: string): Promise<TickerMapping | null>;
   listTickerMappings(): Promise<TickerMapping[]>;
+  deleteTickerMapping(securityId: string): Promise<void>;
 }
 
 export class LocalPortfolioRepository implements PortfolioRepository {
@@ -323,6 +324,12 @@ export class LocalPortfolioRepository implements PortfolioRepository {
 
   async listTickerMappings(): Promise<TickerMapping[]> {
     return this.getList<TickerMapping>(KEYS.tickerMappings);
+  }
+
+  async deleteTickerMapping(securityId: string): Promise<void> {
+    const list = await this.getList<TickerMapping>(KEYS.tickerMappings);
+    const next = list.filter((item) => item.securityId !== securityId);
+    await this.setList(KEYS.tickerMappings, next);
   }
 
   private async getList<T>(key: string): Promise<T[]> {

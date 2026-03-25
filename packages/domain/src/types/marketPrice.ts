@@ -38,6 +38,15 @@ export interface EnrichedHoldingsPosition {
   readonly unrealizedGainPct?: number;
 }
 
+export interface TickerMappingStatus {
+  readonly securityId: string;
+  readonly securityName: string;
+  readonly ticker: string | null;
+  readonly resolvedBy: 'auto' | 'manual';
+  readonly resolvedAt: ISODateTime;
+  readonly status: 'resolved' | 'failed' | 'manual';
+}
+
 export interface PriceSummary {
   readonly total: number;
   readonly live: number;

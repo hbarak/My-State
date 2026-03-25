@@ -64,6 +64,7 @@ export const domain = {
   accountService,
   psagotApiClient,
   psagotApiSyncService,
+  tickerResolver,
 };
 
 export const SPRINT1_PROVIDER_ID = 'provider-web-demo';

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { LocalPortfolioRepository, type JsonStore } from '../src/repositories';
+import { AccountService } from '../src/services/AccountService';
+import { PsagotApiImportHandler } from '../src/services/PsagotApiImportHandler';
+import { PsagotApiSyncService } from '../src/services/PsagotApiSyncService';
 import { PortfolioImportService } from '../src/services/PortfolioImportService';
 import { ImportRunQueryService } from '../src/services/ImportRunQueryService';
-import type { Provider, ProviderIntegration, ProviderMappingProfile } from '../src/types';
+import type { Account, Provider, ProviderIntegration, ProviderMappingProfile, RawImportRow } from '../src/types';
 
 class InMemoryStore implements JsonStore {
   private readonly mem = new Map<string, string>();
@@ -204,5 +207,284 @@ describe('ImportRunQueryService', () => {
 
     const summary = await queryService.getRunSummary('nonexistent-run');
     expect(summary).toBeNull();
+  });
+
+  // ── S5-DEV-03: listAllRuns extensions ──
+
+  it('S5-list-1: listAllRuns returns all runs with correct sourceType, accountLabel, and rawRowCounts', async () => {
+    const repository = new LocalPortfolioRepository(new InMemoryStore());
+    const importService = new PortfolioImportService(repository);
+    const queryService = new ImportRunQueryService(repository);
+    const accountService = new AccountService(repository);
+    const handler = new PsagotApiImportHandler();
+    const syncService = new PsagotApiSyncService(repository, accountService, handler);
+
+    // CSV integration (document_csv)
+    const csvProvider: Provider = {
+      id: 'prov-csv',
+      name: 'CSV Provider',
+      status: 'active',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const csvIntegration: ProviderIntegration = {
+      id: 'int-csv',
+      providerId: csvProvider.id,
+      kind: 'document',
+      dataDomain: 'holdings',
+      communicationMethod: 'document_csv',
+      syncMode: 'manual',
+      direction: 'ingest',
+      adapterKey: 'psagot.holdings.csv.v1',
+      isEnabled: true,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const csvProfile: ProviderMappingProfile = {
+      id: 'profile-csv',
+      providerId: csvProvider.id,
+      providerIntegrationId: csvIntegration.id,
+      name: 'CSV Profile v1',
+      version: 1,
+      isActive: true,
+      inputFormat: 'csv',
+      fieldMappings: {
+        securityId: 'SecurityId',
+        securityName: 'Name',
+        actionType: 'ActionType',
+        quantity: 'Qty',
+        costBasis: 'CostBasis',
+        currency: 'Currency',
+        actionDate: 'ActionDate',
+      },
+      requiredCanonicalFields: ['securityId', 'securityName', 'actionType', 'quantity', 'costBasis', 'currency', 'actionDate'],
+      optionalCanonicalFields: [],
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+
+    // API integration (api_pull)
+    const apiProvider: Provider = {
+      id: 'prov-api',
+      name: 'API Provider',
+      status: 'active',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const apiIntegration: ProviderIntegration = {
+      id: 'int-api',
+      providerId: apiProvider.id,
+      kind: 'api',
+      dataDomain: 'holdings',
+      communicationMethod: 'api_pull',
+      syncMode: 'manual',
+      direction: 'ingest',
+      adapterKey: 'psagot.api.v1',
+      isEnabled: true,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+
+    // Account for API provider
+    const apiAccount: Account = {
+      id: 'acc-api-1',
+      providerId: apiProvider.id,
+      name: 'My API Account',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+
+    await repository.upsertProvider(csvProvider);
+    await repository.upsertIntegration(csvIntegration);
+    await repository.upsertMappingProfile(csvProfile);
+    await repository.upsertProvider(apiProvider);
+    await repository.upsertIntegration(apiIntegration);
+    await repository.upsertAccount(apiAccount);
+
+    // Commit one CSV import
+    const csv = [
+      'SecurityId,Name,ActionType,Qty,CostBasis,Currency,ActionDate',
+      '1111,Stock A,Buy,10,100,ILS,01/01/2026',
+    ].join('\n');
+    const csvResult = await importService.commitImport({
+      providerId: csvProvider.id,
+      providerIntegrationId: csvIntegration.id,
+      sourceName: 'test.csv',
+      csvText: csv,
+    });
+
+    // Run one API sync
+    const apiResult = await syncService.syncAccount({
+      balances: [{
+        equityNumber: '2222',
+        quantity: 50,
+        lastRate: 100,
+        averagePrice: 90,
+        marketValue: 5000,
+        marketValueNis: 5000,
+        profitLoss: 500,
+        profitLossNis: 500,
+        profitLossPct: 10,
+        portfolioWeight: 100,
+        currencyCode: 'ILS',
+        source: 'TA',
+        subAccount: '0',
+        hebName: 'Test Stock',
+      }],
+      providerId: apiProvider.id,
+      providerIntegrationId: apiIntegration.id,
+      accountId: apiAccount.id,
+      agorotConversion: false,
+    });
+
+    const allRuns = await queryService.listAllRuns();
+
+    expect(allRuns).toHaveLength(2);
+
+    const csvItem = allRuns.find((r) => r.run.id === csvResult.importRun.id);
+    expect(csvItem).toBeDefined();
+    expect(csvItem!.sourceType).toBe('csv');
+    expect(csvItem!.rawRowCounts).not.toBeNull();
+    expect(csvItem!.rawRowCounts!.total).toBe(1);
+    expect(csvItem!.rawRowCounts!.valid).toBe(1);
+
+    const apiItem = allRuns.find((r) => r.run.id === apiResult.importRun.id);
+    expect(apiItem).toBeDefined();
+    expect(apiItem!.sourceType).toBe('api');
+    expect(apiItem!.accountLabel).toBe('My API Account');
+    expect(apiItem!.rawRowCounts).not.toBeNull();
+    expect(apiItem!.rawRowCounts!.total).toBe(1);
+    expect(apiItem!.rawRowCounts!.valid).toBe(1);
+  });
+
+  it('S5-list-2: listAllRuns sorts runs by startedAt descending (newest first)', async () => {
+    const repository = new LocalPortfolioRepository(new InMemoryStore());
+    const importService = new PortfolioImportService(repository);
+    const queryService = new ImportRunQueryService(repository);
+
+    const provider: Provider = {
+      id: 'prov-sort',
+      name: 'Sort Provider',
+      status: 'active',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const integration: ProviderIntegration = {
+      id: 'int-sort',
+      providerId: provider.id,
+      kind: 'document',
+      dataDomain: 'holdings',
+      communicationMethod: 'document_csv',
+      syncMode: 'manual',
+      direction: 'ingest',
+      adapterKey: 'psagot.holdings.csv.v1',
+      isEnabled: true,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    const profile: ProviderMappingProfile = {
+      id: 'profile-sort',
+      providerId: provider.id,
+      providerIntegrationId: integration.id,
+      name: 'Sort Profile',
+      version: 1,
+      isActive: true,
+      inputFormat: 'csv',
+      fieldMappings: {
+        securityId: 'SecurityId',
+        securityName: 'Name',
+        actionType: 'ActionType',
+        quantity: 'Qty',
+        costBasis: 'CostBasis',
+        currency: 'Currency',
+        actionDate: 'ActionDate',
+      },
+      requiredCanonicalFields: ['securityId', 'securityName', 'actionType', 'quantity', 'costBasis', 'currency', 'actionDate'],
+      optionalCanonicalFields: [],
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+
+    await repository.upsertProvider(provider);
+    await repository.upsertIntegration(integration);
+    await repository.upsertMappingProfile(profile);
+
+    const csv1 = ['SecurityId,Name,ActionType,Qty,CostBasis,Currency,ActionDate', '1111,A,Buy,1,10,ILS,01/01/2026'].join('\n');
+    const csv2 = ['SecurityId,Name,ActionType,Qty,CostBasis,Currency,ActionDate', '2222,B,Buy,2,20,ILS,01/02/2026'].join('\n');
+
+    const run1 = await importService.commitImport({
+      providerId: provider.id, providerIntegrationId: integration.id, sourceName: 'first.csv', csvText: csv1,
+    });
+    // Small delay to ensure different timestamps
+    await new Promise((r) => setTimeout(r, 5));
+    const run2 = await importService.commitImport({
+      providerId: provider.id, providerIntegrationId: integration.id, sourceName: 'second.csv', csvText: csv2,
+    });
+
+    const allRuns = await queryService.listAllRuns();
+
+    expect(allRuns).toHaveLength(2);
+    // Newest first
+    expect(allRuns[0]!.run.id).toBe(run2.importRun.id);
+    expect(allRuns[1]!.run.id).toBe(run1.importRun.id);
+  });
+
+  it('S5-list-3: listRawRowsForRun returns raw rows for the given run', async () => {
+    const { importService, queryService, provider, integration, seed } = makeHoldingsFixture();
+    await seed();
+
+    const commitResult = await importService.commitImport({
+      providerId: provider.id,
+      providerIntegrationId: integration.id,
+      sourceName: 'rows-test.csv',
+      csvText: HOLDINGS_CSV,
+    });
+
+    const rawRows = await queryService.listRawRowsForRun(commitResult.importRun.id);
+
+    expect(rawRows).toHaveLength(3);
+    for (const row of rawRows) {
+      expect(row.importRunId).toBe(commitResult.importRun.id);
+    }
+  });
+
+  it('S5-list-4: listAllRuns returns null rawRowCounts for legacy runs without raw rows', async () => {
+    const repository = new LocalPortfolioRepository(new InMemoryStore());
+    const queryService = new ImportRunQueryService(repository);
+
+    const integration: ProviderIntegration = {
+      id: 'int-legacy',
+      providerId: 'prov-legacy',
+      kind: 'document',
+      dataDomain: 'holdings',
+      communicationMethod: 'document_csv',
+      syncMode: 'manual',
+      direction: 'ingest',
+      adapterKey: 'psagot.holdings.csv.v1',
+      isEnabled: true,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    await repository.upsertIntegration(integration);
+
+    // Insert a legacy run with no raw rows
+    await repository.addImportRun({
+      id: 'legacy-run-1',
+      providerId: 'prov-legacy',
+      providerIntegrationId: 'int-legacy',
+      sourceName: 'legacy.csv',
+      status: 'success',
+      startedAt: '2025-01-01T00:00:00.000Z',
+      importedCount: 5,
+      skippedCount: 0,
+      errorCount: 0,
+      isUndoable: false,
+    });
+
+    const allRuns = await queryService.listAllRuns();
+
+    expect(allRuns).toHaveLength(1);
+    expect(allRuns[0]!.rawRowCounts).toBeNull();
+    expect(allRuns[0]!.sourceType).toBe('csv');
   });
 });

@@ -4,6 +4,7 @@ import type {
   PortfolioImportRun,
   ProviderHoldingRecord,
   PsagotApiError,
+  RawImportRow,
 } from '../types';
 import { makeId, nowIso } from '../utils/idUtils';
 import type { AccountService } from './AccountService';
@@ -136,6 +137,18 @@ export class PsagotApiSyncService {
 
     await this.repository.addImportRun(importRun);
 
+    // Build and store raw rows for ALL input balances (including invalid ones) before
+    // upserting holding records — ensures audit trail even if upsert fails.
+    const rawRows = buildRawRowsFromBalances({
+      balances: params.balances,
+      importRunId: runId,
+      providerId: params.providerId,
+      providerIntegrationId: params.providerIntegrationId,
+    });
+    if (rawRows.length > 0) {
+      await this.repository.addRawRows(rawRows);
+    }
+
     if (recordsToUpsert.length > 0) {
       await this.repository.upsertHoldingRecords(recordsToUpsert);
     }
@@ -225,6 +238,93 @@ export class PsagotApiSyncService {
 
     return undone;
   }
+}
+
+interface BuildRawRowsParams {
+  readonly balances: readonly PsagotBalance[];
+  readonly importRunId: string;
+  readonly providerId: string;
+  readonly providerIntegrationId: string;
+}
+
+function buildRawRowsFromBalances(params: BuildRawRowsParams): RawImportRow[] {
+  const { balances, importRunId, providerId, providerIntegrationId } = params;
+  const createdAt = nowIso();
+
+  return balances.map((balance, index) => {
+    const rowPayload = JSON.stringify(balance);
+    const rowHash = hashString(rowPayload);
+    const rowNumber = index + 1;
+
+    if (!balance.equityNumber || balance.equityNumber.trim() === '') {
+      return {
+        id: makeId('raw_api'),
+        importRunId,
+        providerId,
+        providerIntegrationId,
+        rowNumber,
+        rowPayload,
+        rowHash,
+        isValid: false,
+        errorCode: 'MISSING_EQUITY_NUMBER',
+        errorMessage: 'Balance has no equity number',
+        createdAt,
+      };
+    }
+
+    if (balance.quantity <= 0) {
+      return {
+        id: makeId('raw_api'),
+        importRunId,
+        providerId,
+        providerIntegrationId,
+        rowNumber,
+        rowPayload,
+        rowHash,
+        isValid: false,
+        errorCode: 'INVALID_QUANTITY',
+        errorMessage: 'Balance quantity is zero or negative',
+        createdAt,
+      };
+    }
+
+    if (balance.averagePrice <= 0) {
+      return {
+        id: makeId('raw_api'),
+        importRunId,
+        providerId,
+        providerIntegrationId,
+        rowNumber,
+        rowPayload,
+        rowHash,
+        isValid: false,
+        errorCode: 'INVALID_AVERAGE_PRICE',
+        errorMessage: 'Balance average price is zero or negative',
+        createdAt,
+      };
+    }
+
+    return {
+      id: makeId('raw_api'),
+      importRunId,
+      providerId,
+      providerIntegrationId,
+      rowNumber,
+      rowPayload,
+      rowHash,
+      isValid: true,
+      createdAt,
+    };
+  });
+}
+
+function hashString(input: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
 }
 
 function toPsagotApiError(err: unknown): PsagotApiError {
