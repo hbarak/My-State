@@ -6,6 +6,7 @@ import { MarketPriceService } from '../../../../packages/domain/src/services/Mar
 import { TickerResolverService } from '../../../../packages/domain/src/services/TickerResolverService';
 import { PortfolioPriceEnricher } from '../../../../packages/domain/src/services/PortfolioPriceEnricher';
 import { AccountService, ensureDefaultAccounts } from '../../../../packages/domain/src/services/AccountService';
+import { ImportRunQueryService } from '../../../../packages/domain/src/services/ImportRunQueryService';
 import { PsagotApiClient } from '../../../../packages/domain/src/services/PsagotApiClient';
 import { PsagotApiImportHandler } from '../../../../packages/domain/src/services/PsagotApiImportHandler';
 import { PsagotApiSyncService } from '../../../../packages/domain/src/services/PsagotApiSyncService';
@@ -61,6 +62,7 @@ export const domain = {
   importService: new PortfolioImportService(repository, telemetry),
   financialStateService,
   securityLotQueryService: new SecurityLotQueryService(repository),
+  importRunQueryService: new ImportRunQueryService(repository),
   accountService,
   psagotApiClient,
   psagotApiSyncService,

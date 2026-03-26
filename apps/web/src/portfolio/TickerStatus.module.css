@@ -1,0 +1,40 @@
+.tickerCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  cursor: pointer;
+  border: none;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.badge:hover {
+  opacity: 0.75;
+}
+
+.badgeAuto {
+  background: var(--color-brand-light);
+  color: var(--color-brand-dark);
+}
+
+.badgeManual {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.badgeFailed {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}

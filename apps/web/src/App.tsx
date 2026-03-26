@@ -15,6 +15,7 @@ import {
 import { PortfolioDashboard } from './portfolio';
 import { AccountSelector } from './import/AccountSelector';
 import { ApiSyncCard } from './import/ApiSyncCard';
+import { DataTab } from './data/DataTab';
 import type { Account } from '../../../packages/domain/src/types/account';
 import styles from './App.module.css';
 
@@ -23,7 +24,7 @@ type PreviewRow = PreviewResult['validRows'][number];
 type CommitResult = Awaited<ReturnType<typeof domain.importService.commitImport>>;
 type HoldingsState = Awaited<ReturnType<typeof domain.financialStateService.getTotalHoldingsState>>;
 
-type ActiveView = 'portfolio' | 'import';
+type ActiveView = 'portfolio' | 'import' | 'data';
 type BootstrapStatus = 'loading' | 'ready' | 'error';
 type ImportStatus = 'idle' | 'processing' | 'awaiting_error_action' | 'completed' | 'failed' | 'cancelled';
 
@@ -287,6 +288,12 @@ export default function App(): JSX.Element {
           >
             Import
           </button>
+          <button
+            className={activeView === 'data' ? styles.tabActive : styles.tab}
+            onClick={() => setActiveView('data')}
+          >
+            Data
+          </button>
         </nav>
       </header>
 
@@ -295,6 +302,8 @@ export default function App(): JSX.Element {
       {activeView === 'portfolio' && bootstrapStatus === 'error' && (
         <p className={styles.error}>Setup failed: {bootstrapError}</p>
       )}
+
+      {activeView === 'data' && <DataTab />}
 
       {activeView === 'import' && (
         <>

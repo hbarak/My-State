@@ -57,3 +57,80 @@ test('click position row — expands drill-down', async ({ page }) => {
   // Verify drill-down has content (lot table or close button)
   await expect(drilldown.getByRole('button', { name: 'Close' })).toBeVisible();
 });
+
+// ── Deferred R4 tests ──────────────────────────────────────────────────────
+
+test.fixme('H3: summary card totals match portfolio data', async ({ page }) => {
+  await goToImportReady(page);
+  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
+  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole('button', { name: 'Portfolio' }).click();
+
+  // Summary cards should show non-empty numeric values
+  await expect(page.locator('[data-testid="summary-value"]')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('[data-testid="summary-cost"]')).toBeVisible();
+  await expect(page.locator('[data-testid="summary-gain-loss"]')).toBeVisible();
+  await expect(page.locator('[data-testid="summary-gain-pct"]')).toBeVisible();
+
+  const valueText = await page.locator('[data-testid="summary-value"]').textContent();
+  expect(valueText).toMatch(/[\d,]+/);
+});
+
+test.fixme('H5: lot-level drill-down shows correct detail fields', async ({ page }) => {
+  await goToImportReady(page);
+  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
+  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
+
+  const firstRow = page.locator('table tbody tr').first();
+  await firstRow.click();
+
+  const drilldown = page.locator('[data-testid="security-drilldown"]');
+  await expect(drilldown).toBeVisible({ timeout: 10_000 });
+
+  // Lot table should have expected column headers
+  await expect(drilldown.locator('th:has-text("Date")')).toBeVisible();
+  await expect(drilldown.locator('th:has-text("Action")')).toBeVisible();
+  await expect(drilldown.locator('th:has-text("Qty")')).toBeVisible();
+  await expect(drilldown.locator('th:has-text("Cost Basis")')).toBeVisible();
+});
+
+test.fixme('H6: multi-account section renders with per-account grouping', async ({ page }) => {
+  await goToImportReady(page);
+  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
+  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
+
+  // Account sections should render with data-testid
+  const accountSections = page.locator('[data-testid="account-section"]');
+  await expect(accountSections.first()).toBeVisible({ timeout: 10_000 });
+  const count = await accountSections.count();
+  expect(count).toBeGreaterThan(0);
+});
+
+test.fixme('H8: undo button disabled after undo, re-enabled after new import', async ({ page }) => {
+  await goToImportReady(page);
+  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
+  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+
+  // Undo button should be enabled after import
+  const undoBtn = page.getByRole('button', { name: /undo/i });
+  await expect(undoBtn).toBeEnabled({ timeout: 10_000 });
+
+  // Click undo
+  await undoBtn.click();
+  await expect(page.getByText(/Undo successful/i)).toBeVisible({ timeout: 10_000 });
+
+  // Undo button should be disabled after undo
+  await expect(undoBtn).toBeDisabled({ timeout: 10_000 });
+
+  // Import again — undo button should re-enable
+  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
+  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(undoBtn).toBeEnabled({ timeout: 10_000 });
+});

@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import type { EnrichedHoldingsPosition, PriceSource } from '../../../../packages/domain/src/types/marketPrice';
+import type { EnrichedHoldingsPosition, PriceSource, TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
 import { SecurityDrillDown } from './SecurityDrillDown';
 import styles from './PositionTable.module.css';
+import tickerStyles from './TickerStatus.module.css';
 
 interface PositionTableProps {
   readonly positions: readonly EnrichedHoldingsPosition[];
@@ -9,6 +10,8 @@ interface PositionTableProps {
   readonly expandedSecurityId: string | null;
   readonly onSelectPosition: (securityId: string) => void;
   readonly onCloseDrillDown: () => void;
+  readonly tickerMappings?: ReadonlyMap<string, TickerMappingStatus>;
+  readonly onResetTicker?: (securityId: string) => void;
 }
 
 export function PositionTable({
@@ -17,6 +20,8 @@ export function PositionTable({
   expandedSecurityId,
   onSelectPosition,
   onCloseDrillDown,
+  tickerMappings,
+  onResetTicker,
 }: PositionTableProps): JSX.Element {
   const sorted = useMemo(
     () =>
@@ -55,6 +60,8 @@ export function PositionTable({
                 isExpanded={isExpanded}
                 onSelect={() => onSelectPosition(pos.securityId)}
                 onClose={onCloseDrillDown}
+                tickerStatus={tickerMappings?.get(pos.securityId)}
+                onResetTicker={onResetTicker}
               />
             );
           })}
@@ -70,12 +77,16 @@ function PositionRow({
   isExpanded,
   onSelect,
   onClose,
+  tickerStatus,
+  onResetTicker,
 }: {
   readonly position: EnrichedHoldingsPosition;
   readonly providerId: string;
   readonly isExpanded: boolean;
   readonly onSelect: () => void;
   readonly onClose: () => void;
+  readonly tickerStatus?: TickerMappingStatus;
+  readonly onResetTicker?: (securityId: string) => void;
 }): JSX.Element {
   return (
     <>
@@ -85,7 +96,14 @@ function PositionRow({
         title={priceTooltip(position.priceSource)}
       >
         <td>{position.securityName}</td>
-        <td>{position.ticker ?? '—'}</td>
+        <td>
+          <TickerCell
+            securityId={position.securityId}
+            ticker={position.ticker}
+            tickerStatus={tickerStatus}
+            onResetTicker={onResetTicker}
+          />
+        </td>
         <td className={styles.num}>{formatNum(position.quantity)}</td>
         <td className={styles.num}>{formatMoney(position.costBasis, position.currency)}</td>
         <td className={styles.num}>{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
@@ -101,6 +119,52 @@ function PositionRow({
         <SecurityDrillDown position={position} providerId={providerId} onClose={onClose} />
       )}
     </>
+  );
+}
+
+function TickerCell({
+  securityId,
+  ticker,
+  tickerStatus,
+  onResetTicker,
+}: {
+  readonly securityId: string;
+  readonly ticker?: string;
+  readonly tickerStatus?: TickerMappingStatus;
+  readonly onResetTicker?: (securityId: string) => void;
+}): JSX.Element {
+  if (!tickerStatus) {
+    return <span>{ticker ?? '—'}</span>;
+  }
+
+  const { status } = tickerStatus;
+  const badgeClass =
+    status === 'manual' ? tickerStyles.badgeManual
+    : status === 'failed' ? tickerStyles.badgeFailed
+    : tickerStyles.badgeAuto;
+
+  const badgeLabel = status === 'manual' ? 'M' : status === 'failed' ? '!' : 'A';
+  const badgeTitle =
+    status === 'manual' ? 'Manually set ticker'
+    : status === 'failed' ? 'Ticker not resolved — click to retry'
+    : 'Auto-resolved ticker';
+
+  return (
+    <span className={tickerStyles.tickerCell}>
+      <span>{ticker ?? '—'}</span>
+      <button
+        type="button"
+        className={`${tickerStyles.badge} ${badgeClass}`}
+        title={badgeTitle}
+        aria-label={`${badgeTitle}. Click to reset mapping for ${securityId}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onResetTicker?.(securityId);
+        }}
+      >
+        {badgeLabel}
+      </button>
+    </span>
   );
 }
 

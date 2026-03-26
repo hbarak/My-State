@@ -76,7 +76,7 @@ export function SyncResultsSummary({
       )}
 
       <button type="button" className={styles.secondaryButton} onClick={onSyncAgain}>
-        Sync Again
+        {summary.errors.length > 0 && summary.accountsSynced > 0 ? 'Retry Failed' : 'Sync Again'}
       </button>
     </div>
   );
