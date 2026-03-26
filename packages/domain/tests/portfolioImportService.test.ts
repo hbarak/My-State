@@ -512,7 +512,8 @@ describe('PortfolioImportService', () => {
     expect(normalized.actionDate).toBe('2025-09-02');
     expect(normalized.quantity).toBe(39);
     expect(normalized.costBasis).toBeCloseTo(43.0866); // 4308.66 agorot / 100
-    expect(normalized.currentPrice).toBeCloseTo(42.57); // 4257 agorot / 100
+    // currentPrice is not stored per DECISION_LOG #38 (Option A)
+    expect(normalized.currentPrice).toBeUndefined();
 
     const commit = await service.commitImport({
       providerId: provider.id,

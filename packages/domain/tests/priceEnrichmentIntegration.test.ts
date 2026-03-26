@@ -166,7 +166,7 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     expect(enriched.priceSummary.unavailable).toBe(0);
   });
 
-  it('missing ticker: one resolves, one does not — mixed display, insufficientData = false', async () => {
+  it('missing ticker: one resolves, one does not — live for resolved, unavailable for unresolved', async () => {
     const { importService, holdingsBuilder, enricher, seed } = makeIntegrationFixture({
       searchResults: {
         'דלק קבוצה': 'DLEKG.TA',
@@ -188,22 +188,23 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     const holdings = await holdingsBuilder.build({ providerId: PROVIDER_ID });
     const { state: enriched } = await enricher.enrich(holdings);
 
-    expect(enriched.insufficientData).toBe(false);
-
+    // Delek has live price; Leumi has no ticker → unavailable (no CSV fallback per DECISION_LOG #38)
     const delek = enriched.positions.find((p) => p.securityId === '1084128')!;
     expect(delek.priceSource).toBe('live');
     expect(delek.currentPrice).toBe(120);
 
     const leumi = enriched.positions.find((p) => p.securityId === '604611')!;
-    // Has CSV price from import (35.00 agorot / 100 = 0.35 ILS)
-    expect(leumi.priceSource).toBe('csv');
-    expect(leumi.currentPrice).toBeCloseTo(0.35);
+    expect(leumi.priceSource).toBe('unavailable');
+    expect(leumi.currentPrice).toBeUndefined();
 
+    // insufficientData = true because leumi is unavailable
+    expect(enriched.insufficientData).toBe(true);
     expect(enriched.priceSummary.live).toBe(1);
-    expect(enriched.priceSummary.csv).toBe(1);
+    expect(enriched.priceSummary.unavailable).toBe(1);
+    expect(enriched.priceSummary.csv).toBe(0);
   });
 
-  it('price fetch failure: ticker resolved but Yahoo fetch fails — CSV fallback, insufficientData = false', async () => {
+  it('price fetch failure: ticker resolved but Yahoo fetch fails — unavailable (no CSV fallback)', async () => {
     const { importService, holdingsBuilder, enricher, seed } = makeIntegrationFixture({
       searchResults: {
         'דלק קבוצה': 'DLEKG.TA',
@@ -224,15 +225,15 @@ describe('Price enrichment integration tests (S2-DEV-04)', () => {
     const holdings = await holdingsBuilder.build({ providerId: PROVIDER_ID });
     const { state: enriched } = await enricher.enrich(holdings);
 
-    expect(enriched.insufficientData).toBe(false);
-
-    // Both positions should fall back — delek has CSV price, leumi has CSV price
+    // No CSV fallback per DECISION_LOG #38 (Option A) — all positions unavailable on fetch failure
     for (const pos of enriched.positions) {
-      expect(pos.priceSource).toBe('csv');
-      expect(pos.currentPrice).toBeDefined();
+      expect(pos.priceSource).toBe('unavailable');
+      expect(pos.currentPrice).toBeUndefined();
     }
 
+    expect(enriched.insufficientData).toBe(true);
     expect(enriched.priceSummary.live).toBe(0);
+    expect(enriched.priceSummary.csv).toBe(0);
   });
 
   it('multi-currency portfolio: ILS and USD positions, totals grouped by currency', async () => {

@@ -124,7 +124,8 @@ describe('Psagot end-to-end import', () => {
     expect(lot1.quantity).toBe(5);
     expect(lot1.costBasis).toBeCloseTo(690.586); // 69058.60 agorot / 100
     expect(lot1.actionDate).toBe('2025-07-31');
-    expect(lot1.currentPrice).toBeCloseTo(974.10); // 97410.00 agorot / 100
+    // currentPrice is not stored per DECISION_LOG #38 (Option A) — PortfolioPriceEnricher is sole source
+    expect(lot1.currentPrice).toBeUndefined();
     expect(lot1.currency).toBe('ILS');
   });
 
@@ -161,8 +162,9 @@ describe('Psagot end-to-end import', () => {
     // Lot costs: (5 * 690.586) + (5 * 670.27) + (5 * 798.678) + (10 * 825.701) = 19054.68
     const expectedTotalCost = (5 * 690.586) + (5 * 670.27) + (5 * 798.678) + (10 * 825.701);
     expect(position!.totalCost).toBeCloseTo(expectedTotalCost);
-    expect(position!.currentPrice).toBeCloseTo(974.10); // 97410 agorot / 100
-    expect(position!.unrealizedGain).toBeCloseTo(974.10 * 25 - expectedTotalCost);
+    // currentPrice is never stored per DECISION_LOG #38 (Option A) — comes from live price enrichment
+    expect(position!.currentPrice).toBeUndefined();
+    expect(position!.unrealizedGain).toBeUndefined();
   });
 
   it('produces correct aggregated TotalHoldingsState from multi-lot import', async () => {
@@ -183,10 +185,11 @@ describe('Psagot end-to-end import', () => {
     expect(delek.securityId).toBe('1084128');
     expect(delek.quantity).toBe(25);
     expect(delek.lotCount).toBe(4);
-    expect(delek.currentPrice).toBeCloseTo(974.10); // 97410 agorot / 100
+    // currentPrice is never stored per DECISION_LOG #38 (Option A) — comes from live price enrichment
+    expect(delek.currentPrice).toBeUndefined();
 
-    // Valuation: 25 * 974.10 = 24,352.50
-    expect(state.valuationTotalsByCurrency['ILS']).toBeCloseTo(24352.50);
+    // Without live price, valuation totals are cost-based only — no ILS valuation entry
+    expect(state.insufficientData).toBe(true);
   });
 
   it('run summary reflects all imported lots', async () => {

@@ -33,6 +33,13 @@ export interface JsonStore {
   setItem(key: string, value: string): Promise<void>;
 }
 
+export interface ImportRunProvenance {
+  readonly runId: string;
+  readonly importDate: string;
+  readonly accountId: string;
+  readonly lotCount: number;
+}
+
 export interface PortfolioRepository {
   upsertAccount(account: Account): Promise<void>;
   getAccount(providerId: string, accountId: string): Promise<Account | null>;
@@ -63,6 +70,13 @@ export interface PortfolioRepository {
   listHoldingRecordsByProvider(providerId: string): Promise<ProviderHoldingRecord[]>;
   listHoldingRecordsByAccount(providerId: string, accountId: string): Promise<ProviderHoldingRecord[]>;
   listHoldingRecordsByImportRun(importRunId: string): Promise<ProviderHoldingRecord[]>;
+  /** Soft-deletes all holding records for the given run and marks the run as undone. */
+  deleteImportRunContribution(runId: string): Promise<void>;
+  /** Returns provenance entries for a security — one entry per contributing import run. */
+  getProvenanceForSecurity(securityId: string): Promise<readonly ImportRunProvenance[]>;
+  /** Wipes all import data: holding records, import runs, raw rows, and ticker mappings.
+   *  Configuration (providers, integrations, mapping profiles) is preserved. */
+  resetAllData(): Promise<void>;
   listTradesByProvider(providerId: string): Promise<TradeTransaction[]>;
   listTradesByAccount(providerId: string, accountId: string): Promise<TradeTransaction[]>;
   listTradesByIntegration(providerIntegrationId: string): Promise<TradeTransaction[]>;
@@ -267,6 +281,64 @@ export class LocalPortfolioRepository implements PortfolioRepository {
   async listHoldingRecordsByImportRun(importRunId: string): Promise<ProviderHoldingRecord[]> {
     const list = await this.getList<ProviderHoldingRecord>(KEYS.holdingRecords);
     return list.filter((item) => item.importRunId === importRunId).map(migrateAccountId);
+  }
+
+  async deleteImportRunContribution(runId: string): Promise<void> {
+    const now = new Date().toISOString();
+
+    // Soft-delete all holding records for this run
+    const records = await this.getList<ProviderHoldingRecord>(KEYS.holdingRecords);
+    const updatedRecords = records.map((record) => {
+      if (record.importRunId !== runId) return record;
+      return { ...record, deletedAt: now, updatedAt: now };
+    });
+    await this.setList(KEYS.holdingRecords, updatedRecords);
+
+    // Mark the import run as undone
+    const runs = await this.getList<PortfolioImportRun>(KEYS.importRuns);
+    const updatedRuns = runs.map((run) => {
+      if (run.id !== runId) return run;
+      return { ...run, isUndoable: false, undoneAt: now };
+    });
+    await this.setList(KEYS.importRuns, updatedRuns);
+  }
+
+  async getProvenanceForSecurity(securityId: string): Promise<readonly ImportRunProvenance[]> {
+    const records = await this.getList<ProviderHoldingRecord>(KEYS.holdingRecords);
+    const runs = await this.getList<PortfolioImportRun>(KEYS.importRuns);
+
+    const runById = new Map(runs.map((r) => [r.id, r]));
+
+    // Collect active (non-deleted) lots for this security, grouped by importRunId
+    const lotCountByRunId = new Map<string, number>();
+    for (const record of records) {
+      if (record.securityId !== securityId) continue;
+      if (record.deletedAt) continue;
+      if (!record.importRunId) continue;
+      lotCountByRunId.set(record.importRunId, (lotCountByRunId.get(record.importRunId) ?? 0) + 1);
+    }
+
+    const result: ImportRunProvenance[] = [];
+    for (const [runId, lotCount] of lotCountByRunId.entries()) {
+      const run = runById.get(runId);
+      result.push({
+        runId,
+        importDate: run?.startedAt ?? '',
+        accountId: run?.accountId ?? 'default',
+        lotCount,
+      });
+    }
+
+    return result;
+  }
+
+  async resetAllData(): Promise<void> {
+    await this.setList(KEYS.holdingRecords, []);
+    await this.setList(KEYS.importRuns, []);
+    await this.setList(KEYS.rawRows, []);
+    await this.setList(KEYS.tickerMappings, []);
+    await this.setList(KEYS.trades, []);
+    await this.setList(KEYS.lots, []);
   }
 
   async listTradesByProvider(providerId: string): Promise<TradeTransaction[]> {

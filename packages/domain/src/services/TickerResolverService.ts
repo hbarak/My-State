@@ -1,6 +1,7 @@
 import type { PortfolioRepository } from '../repositories/portfolioRepository';
 import type { TickerSearcher } from '../ports/TickerSearcher';
 import type { TickerMapping, TickerMappingStatus } from '../types/marketPrice';
+import type { IsraeliSecurityLookup } from '../data/israeliSecurities';
 
 export interface SecurityInput {
   readonly securityId: string;
@@ -11,6 +12,7 @@ export class TickerResolverService {
   constructor(
     private readonly repository: PortfolioRepository,
     private readonly searcher: TickerSearcher,
+    private readonly israeliLookup?: IsraeliSecurityLookup,
   ) {}
 
   async resolveAll(
@@ -69,18 +71,34 @@ export class TickerResolverService {
   }
 
   private async resolveSingle(sec: SecurityInput): Promise<TickerMapping | null> {
-    // Check persistent cache first
+    // Step 1: Check persistent cache (repo) — cache hit = done
     const cached = await this.repository.getTickerMapping(sec.securityId);
     if (cached) {
       return cached;
     }
 
-    // Skip auto-resolve for empty/garbage names
+    // Step 2: Israeli static table lookup (DECISION_LOG #37, S6-DEV-03)
+    if (this.israeliLookup) {
+      const staticTicker = this.israeliLookup.lookup(sec.securityId);
+      if (staticTicker !== null) {
+        const mapping: TickerMapping = {
+          securityId: sec.securityId,
+          securityName: sec.securityName,
+          ticker: staticTicker,
+          resolvedAt: new Date().toISOString(),
+          resolvedBy: 'static-table',
+        };
+        await this.repository.upsertTickerMapping(mapping);
+        return mapping;
+      }
+    }
+
+    // Step 3: Skip auto-resolve for empty/garbage names
     if (!sec.securityName?.trim()) {
       return null;
     }
 
-    // Auto-resolve via searcher
+    // Step 4: Auto-resolve via name-search (existing behaviour)
     let ticker: string | null;
     try {
       ticker = await this.searcher.searchTicker(sec.securityName);

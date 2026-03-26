@@ -6,7 +6,7 @@ export interface TickerMapping {
   readonly ticker: string | null;
   readonly exchange?: string;
   readonly resolvedAt: ISODateTime;
-  readonly resolvedBy: 'auto' | 'manual';
+  readonly resolvedBy: 'auto' | 'manual' | 'static-table';
 }
 
 export type PriceSource = 'live' | 'stale' | 'csv' | 'unavailable';
@@ -42,7 +42,7 @@ export interface TickerMappingStatus {
   readonly securityId: string;
   readonly securityName: string;
   readonly ticker: string | null;
-  readonly resolvedBy: 'auto' | 'manual';
+  readonly resolvedBy: 'auto' | 'manual' | 'static-table';
   readonly resolvedAt: ISODateTime;
   readonly status: 'resolved' | 'failed' | 'manual';
 }

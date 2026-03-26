@@ -348,11 +348,11 @@ export class PsagotHoldingsImportHandler implements DomainImportHandler {
       const existingRecord = existingByIdentity.get(identityKey);
 
       if (existingRecord) {
-        // Update existing record with new quantity (partial sell)
+        // Update existing record with new quantity (partial sell).
+        // currentPrice is NOT updated — it is never stored per DECISION_LOG #38.
         records.push({
           ...existingRecord,
           quantity: normalized.quantity,
-          currentPrice: normalized.currentPrice,
           importRunId: runId,
           updatedAt: nowIso(),
         });
@@ -653,7 +653,10 @@ function normalizeHoldingRow(
       costBasis,
       currency: normalizedCurrency,
       actionDate,
-      currentPrice,
+      // currentPrice is intentionally omitted — CSV market price is a stale
+      // snapshot at file-generation time, not a hard fact about the lot.
+      // PortfolioPriceEnricher (live Yahoo Finance) is the sole price source.
+      // DECISION_LOG #38 — Option A.
     },
   };
 }
