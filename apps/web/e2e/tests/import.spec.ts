@@ -19,11 +19,11 @@ test('import valid CSV — holdings appear in portfolio', async ({ page }) => {
   // Upload the valid CSV
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
 
-  // Wait for auto-commit (all rows valid → no "Action Required")
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  // Wait for auto-commit (all rows valid → wizard moves to done step)
+  await expect(page.getByText('Import complete')).toBeVisible({ timeout: 10_000 });
 
-  // Verify import summary
-  await expect(page.getByText('Import Summary')).toBeVisible();
+  // Verify import summary counts are present
+  await expect(page.getByText('Imported')).toBeVisible();
 
   // Switch to Portfolio tab and verify holdings appear
   await page.getByRole('button', { name: 'Portfolio' }).click();
@@ -42,17 +42,18 @@ test('import CSV with invalid rows — shows error UI and allows continue', asyn
 
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'mixed-holdings.csv'));
 
-  // Should show "Action Required" because of the invalid row
-  await expect(page.getByText('Action Required')).toBeVisible({ timeout: 10_000 });
+  // Should show preview step with valid/invalid counts
+  await expect(page.getByText(/\d+ valid/).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/\d+ invalid/).first()).toBeVisible();
 
-  // Click "Continue with valid rows"
-  await page.getByRole('button', { name: /Continue with valid rows/i }).click();
+  // Click "Import N valid rows"
+  await page.getByRole('button', { name: /Import \d+ valid rows/i }).click();
 
   // Wait for commit to complete
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Import complete')).toBeVisible({ timeout: 10_000 });
 
   // Verify summary shows imported count
-  await expect(page.getByText('Import Summary')).toBeVisible();
+  await expect(page.getByText('Imported')).toBeVisible();
 });
 
 test('import CSV with invalid rows — cancel discards all', async ({ page }) => {
@@ -60,13 +61,13 @@ test('import CSV with invalid rows — cancel discards all', async ({ page }) =>
 
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'mixed-holdings.csv'));
 
-  await expect(page.getByText('Action Required')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/\d+ valid/).first()).toBeVisible({ timeout: 10_000 });
 
   // Cancel the import
-  await page.getByRole('button', { name: /Cancel import/i }).click();
+  await page.getByRole('button', { name: 'Cancel' }).click();
 
   // Verify cancellation message
-  await expect(page.getByText(/Import canceled/i)).toBeVisible();
+  await expect(page.getByText(/Import cancelled/i)).toBeVisible();
 
   // Switch to Portfolio and verify no holdings
   await page.getByRole('button', { name: 'Portfolio' }).click();

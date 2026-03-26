@@ -21,7 +21,7 @@ test('portfolio shows positions after import', async ({ page }) => {
   // Import data first
   await goToImportReady(page);
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
   // Switch to Portfolio
   await page.getByRole('button', { name: 'Portfolio' }).click();
@@ -40,7 +40,7 @@ test('click position row — expands drill-down', async ({ page }) => {
   // Import data
   await goToImportReady(page);
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
   // Go to Portfolio
   await page.getByRole('button', { name: 'Portfolio' }).click();
@@ -63,7 +63,7 @@ test('click position row — expands drill-down', async ({ page }) => {
 test.fixme('H3: summary card totals match portfolio data', async ({ page }) => {
   await goToImportReady(page);
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
   await page.getByRole('button', { name: 'Portfolio' }).click();
 
@@ -80,7 +80,7 @@ test.fixme('H3: summary card totals match portfolio data', async ({ page }) => {
 test.fixme('H5: lot-level drill-down shows correct detail fields', async ({ page }) => {
   await goToImportReady(page);
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
   await page.getByRole('button', { name: 'Portfolio' }).click();
   await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
@@ -101,7 +101,7 @@ test.fixme('H5: lot-level drill-down shows correct detail fields', async ({ page
 test.fixme('H6: multi-account section renders with per-account grouping', async ({ page }) => {
   await goToImportReady(page);
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
   await page.getByRole('button', { name: 'Portfolio' }).click();
   await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
@@ -116,7 +116,7 @@ test.fixme('H6: multi-account section renders with per-account grouping', async 
 test.fixme('H8: undo button disabled after undo, re-enabled after new import', async ({ page }) => {
   await goToImportReady(page);
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
   // Undo button should be enabled after import
   const undoBtn = page.getByRole('button', { name: /undo/i });
@@ -131,6 +131,6 @@ test.fixme('H8: undo button disabled after undo, re-enabled after new import', a
 
   // Import again — undo button should re-enable
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
   await expect(undoBtn).toBeEnabled({ timeout: 10_000 });
 });

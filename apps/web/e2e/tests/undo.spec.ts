@@ -17,18 +17,13 @@ test('undo removes last imported data', async ({ page }) => {
   // Import data
   await goToImportReady(page);
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
-  await expect(page.getByText(/Import completed/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Import complete')).toBeVisible({ timeout: 10_000 });
 
-  // Verify holdings exist in Portfolio
-  await page.getByRole('button', { name: 'Portfolio' }).click();
-  await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
+  // Click Undo from the done step (before navigating away — wizard resets on remount)
+  await page.getByRole('button', { name: 'Undo' }).click();
 
-  // Go back to Import and undo
-  await page.getByRole('button', { name: 'Import' }).click();
-  await page.getByRole('button', { name: /Undo last import/i }).click();
-
-  // Wait for undo to complete
-  await expect(page.getByText(/Undid import run/i)).toBeVisible({ timeout: 10_000 });
+  // Wait for undo to complete — "Import another" button re-enables (isBusy goes false)
+  await expect(page.getByRole('button', { name: 'Import another' })).toBeEnabled({ timeout: 10_000 });
 
   // Verify portfolio is now empty
   await page.getByRole('button', { name: 'Portfolio' }).click();

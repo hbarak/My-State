@@ -183,6 +183,7 @@ export function AddDataWizard({
             <span className={styles.dropBrowse}>Browse file</span>
             <input
               ref={fileInputRef}
+              id="csv-upload"
               type="file"
               accept=".csv,text/csv"
               className={styles.hiddenInput}
