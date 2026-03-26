@@ -13,8 +13,8 @@ import {
   type ResolutionRowOutcome,
 } from './import/resolutionAuditStore';
 import { PortfolioDashboard } from './portfolio';
-import { AccountSelector } from './import/AccountSelector';
-import { ApiSyncCard } from './import/ApiSyncCard';
+import { AddDataWizard } from './import/AddDataWizard';
+import type { PreviewSummary, CommitSummary } from './import/AddDataWizard';
 import { DataTab } from './data/DataTab';
 import type { Account } from '../../../packages/domain/src/types/account';
 import styles from './App.module.css';
@@ -307,184 +307,27 @@ export default function App(): JSX.Element {
       {activeView === 'data' && <DataTab />}
 
       {activeView === 'import' && (
-        <>
-          <section className={styles.card}>
-            <AccountSelector
-              accounts={accounts}
-              selectedAccountId={selectedAccountId}
-              onSelect={setSelectedAccountId}
-              onCreate={onCreateAccount}
-              onRename={onRenameAccount}
-              disabled={!canUpload}
-            />
-          </section>
-
-          <section className={styles.card}>
-            <ApiSyncCard
-              disabled={!canUpload}
-              onAccountsChanged={() => void onAccountsChanged()}
-            />
-          </section>
-
-          <section className={`${styles.card} ${styles.uploadLayout}`}>
-            <label htmlFor="csv-upload" className={styles.fieldLabel}>
-              CSV file
-            </label>
-            <input
-              id="csv-upload"
-              type="file"
-              accept=".csv,text/csv"
-              className={styles.fileInput}
-              onChange={onFileChange}
-              disabled={!canUpload}
-            />
-            {bootstrapStatus === 'loading' ? <p>Preparing import setup...</p> : null}
-            {bootstrapStatus === 'error' ? <p className={styles.error}>Setup failed: {bootstrapError}</p> : null}
-          </section>
-
-          {uploaded ? (
-            <section className={styles.card}>
-              <h2>Current File</h2>
-              <p>
-                <strong>Source:</strong> {uploaded.sourceName}
-              </p>
-              <p>
-                <strong>Rows:</strong> {uploaded.rowCount}
-              </p>
-              <p>
-                <strong>Route:</strong> {readableIntegrationName(selectedIntegrationId)}
-              </p>
-              <p>
-                <strong>Account:</strong> {readableAccountName(accounts, selectedAccountId)}
-              </p>
-            </section>
-          ) : null}
-
-          {noticeMessage ? <p>{noticeMessage}</p> : null}
-          {failureMessage ? <p className={styles.error}>{failureMessage}</p> : null}
-
-          {status === 'awaiting_error_action' && preview ? (
-            <section className={styles.card}>
-              <h2>Action Required</h2>
-              <p>
-                Found <strong>{preview.invalidRows.length}</strong> invalid row(s).
-                {preview.validRows.length > 0 ? ` ${preview.validRows.length} valid row(s) are ready to import.` : ''}
-              </p>
-              <div className={styles.actions}>
-                <button className={styles.primaryButton} onClick={() => void onContinueWithValidRows()} disabled={isBusy}>
-                  Continue with valid rows
-                </button>
-                <button className={styles.secondaryButton} onClick={onCancelImport} disabled={isBusy}>
-                  Cancel import
-                </button>
-              </div>
-            </section>
-          ) : null}
-
-          {preview && (invalidCount > 0 || duplicateCount > 0) ? (
-            <section className={styles.card}>
-              <h2>Import Diagnostics</h2>
-              {invalidCount > 0 ? (
-                <>
-                  <h3>Invalid Row Reasons</h3>
-                  <ul className={styles.reasonList}>
-                    {reasonSummary.map((reason) => (
-                      <li key={reason.code}>
-                        <strong>{reason.code}</strong> ({reason.count})
-                        {reason.message ? `: ${reason.message}` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                  <details>
-                    <summary>Show invalid rows ({invalidCount})</summary>
-                    <ul className={styles.rowList}>
-                      {preview.invalidRows.slice(0, 12).map((row) => (
-                        <li key={`invalid-${row.rowNumber}`}>
-                          Row {row.rowNumber}: {row.errorMessage ?? row.errorCode ?? 'Invalid row'}
-                        </li>
-                      ))}
-                    </ul>
-                    {invalidCount > 12 ? <p>Showing first 12 invalid rows.</p> : null}
-                  </details>
-                </>
-              ) : null}
-
-              {duplicateCount > 0 ? (
-                <details>
-                  <summary>Show duplicate rows ({duplicateCount})</summary>
-                  <ul className={styles.rowList}>
-                    {preview.duplicateRows.slice(0, 12).map((row) => (
-                      <li key={`dup-${row.rowNumber}`}>
-                        Row {row.rowNumber}: {row.errorMessage ?? row.errorCode ?? previewRowSnippet(row)}
-                      </li>
-                    ))}
-                  </ul>
-                  {duplicateCount > 12 ? <p>Showing first 12 duplicate rows.</p> : null}
-                </details>
-              ) : null}
-            </section>
-          ) : null}
-
-          {commitResult ? (
-            <section className={styles.card}>
-              <h2>Import Summary</h2>
-              <div className={styles.summaryGrid}>
-                <article className={styles.summaryBox}>
-                  <h3>Imported</h3>
-                  <p>{commitResult.importedTrades}</p>
-                </article>
-                <article className={styles.summaryBox}>
-                  <h3>Skipped</h3>
-                  <p>{commitResult.skippedRows}</p>
-                </article>
-                <article className={styles.summaryBox}>
-                  <h3>Errors</h3>
-                  <p>{commitResult.errorRows}</p>
-                </article>
-              </div>
-              <div className={styles.actions}>
-                <button className={styles.secondaryButton} onClick={() => void onUndoLastImport()} disabled={isBusy}>
-                  Undo last import
-                </button>
-              </div>
-            </section>
-          ) : null}
-
-          {holdingsState ? (
-            <section className={styles.card}>
-              <h2>Holdings Reliability</h2>
-              <p>
-                <strong>As of:</strong> {holdingsState.asOf ?? 'n/a'}
-              </p>
-              <p>
-                <strong>Positions:</strong> {holdingsState.positionCount}
-              </p>
-              {holdingsState.insufficientData ? (
-                <p className={styles.warning}>Some positions do not include current price, so valuation totals are partial.</p>
-              ) : null}
-
-              <h3>Quantity Totals</h3>
-              <ul className={styles.rowList}>
-                {Object.entries(holdingsState.quantityTotalsByCurrency).map(([currency, total]) => (
-                  <li key={`qty-${currency}`}>
-                    {currency}: {formatNumber(total)}
-                  </li>
-                ))}
-                {Object.keys(holdingsState.quantityTotalsByCurrency).length === 0 ? <li>No quantity totals yet.</li> : null}
-              </ul>
-
-              <h3>Valuation Totals</h3>
-              <ul className={styles.rowList}>
-                {Object.entries(holdingsState.valuationTotalsByCurrency).map(([currency, total]) => (
-                  <li key={`val-${currency}`}>
-                    {currency}: {formatNumber(total)}
-                  </li>
-                ))}
-                {Object.keys(holdingsState.valuationTotalsByCurrency).length === 0 ? <li>No valuation totals yet.</li> : null}
-              </ul>
-            </section>
-          ) : null}
-        </>
+        <AddDataWizard
+          accounts={accounts}
+          selectedAccountId={selectedAccountId}
+          onSelectAccount={setSelectedAccountId}
+          onCreateAccount={onCreateAccount}
+          onRenameAccount={onRenameAccount}
+          onAccountsChanged={() => void onAccountsChanged()}
+          onFileSelected={(file) => {
+            const syntheticEvent = { target: { files: [file], value: '' } } as unknown as ChangeEvent<HTMLInputElement>;
+            onFileChange(syntheticEvent);
+          }}
+          disabled={!canUpload}
+          importStatus={status}
+          noticeMessage={noticeMessage}
+          failureMessage={failureMessage}
+          previewSummary={preview ? buildPreviewSummary(preview, reasonSummary) : null}
+          commitSummary={commitResult ? buildCommitSummary(commitResult) : null}
+          onContinueWithValidRows={() => void onContinueWithValidRows()}
+          onCancelImport={onCancelImport}
+          onUndoLastImport={() => void onUndoLastImport()}
+        />
       )}
     </main>
   );
@@ -617,4 +460,34 @@ function makeClientRunId(): string {
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown import error';
+}
+
+function buildPreviewSummary(
+  preview: PreviewResult,
+  reasonSummary: ReasonSummary[],
+): import('./import/AddDataWizard').PreviewSummary {
+  return {
+    validCount: preview.validRows.length,
+    invalidCount: preview.invalidRows.length,
+    duplicateCount: preview.duplicateRows.length,
+    reasonSummary,
+    invalidRows: preview.invalidRows.map((row) => ({
+      rowNumber: row.rowNumber,
+      errorCode: row.errorCode,
+      errorMessage: row.errorMessage,
+    })),
+    duplicateRows: preview.duplicateRows.map((row) => ({
+      rowNumber: row.rowNumber,
+      errorCode: row.errorCode,
+      errorMessage: row.errorMessage,
+    })),
+  };
+}
+
+function buildCommitSummary(result: CommitResult): import('./import/AddDataWizard').CommitSummary {
+  return {
+    importedTrades: result.importedTrades,
+    skippedRows: result.skippedRows,
+    errorRows: result.errorRows,
+  };
 }
