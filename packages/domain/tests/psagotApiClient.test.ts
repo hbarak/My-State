@@ -370,6 +370,71 @@ describe('PsagotApiClient', () => {
     expect(accounts).toEqual([]);
   });
 
+  it('O6: verifyOtp network failure throws network_error', async () => {
+    let callCount = 0;
+    const http: HttpPort = {
+      request: vi.fn(async (req: HttpRequest) => {
+        callCount++;
+        if (callCount === 1) {
+          return { status: 200, body: { SessionKey: 'pending-key' } };
+        }
+        throw new Error('fetch failed');
+      }),
+    };
+    const client = new PsagotApiClient(http);
+
+    const pending = await client.initiateLogin(CREDS);
+    await expect(client.verifyOtp(pending, '123456', CREDS)).rejects.toMatchObject({
+      type: 'network_error',
+    });
+  });
+
+  it('O7: verifyOtp 401 response throws auth_failed error', async () => {
+    const http = mockHttp((req) => {
+      const body = req.body as Record<string, string>;
+      if (!body.Token) return { status: 200, body: { SessionKey: 'pending-key' } };
+      return { status: 401, body: { Error: 'Unauthorized' } };
+    });
+    const client = new PsagotApiClient(http);
+
+    const pending = await client.initiateLogin(CREDS);
+    await expect(client.verifyOtp(pending, '123456', CREDS)).rejects.toMatchObject({
+      type: 'auth_failed',
+    });
+  });
+
+  it('O8: verifyOtp generic Error body (not OTP, not expired) throws auth_failed', async () => {
+    const http = mockHttp((req) => {
+      const body = req.body as Record<string, string>;
+      if (!body.Token) return { status: 200, body: { SessionKey: 'pending-key' } };
+      return { status: 200, body: { Error: 'Account locked due to policy violation' } };
+    });
+    const client = new PsagotApiClient(http);
+
+    const pending = await client.initiateLogin(CREDS);
+    await expect(client.verifyOtp(pending, '123456', CREDS)).rejects.toMatchObject({
+      type: 'auth_failed',
+    });
+  });
+
+  it('A4: fetchAccounts non-session API error throws api_error', async () => {
+    const http = mockHttp((req) => {
+      if (req.method === 'POST') {
+        const body = req.body as Record<string, string>;
+        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
+        return { status: 200, body: { SessionKey: 'auth-key' } };
+      }
+      return { status: 200, body: { Error: 'ServiceUnavailableException' } };
+    });
+    const client = new PsagotApiClient(http);
+
+    const pending = await client.initiateLogin(CREDS);
+    const session = await client.verifyOtp(pending, '123', CREDS);
+    await expect(client.fetchAccounts(session)).rejects.toMatchObject({
+      type: 'api_error',
+    });
+  });
+
   it('B3: fetchBalances network failure throws network_error', async () => {
     let callCount = 0;
     const http: HttpPort = {
