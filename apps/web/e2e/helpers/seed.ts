@@ -24,7 +24,10 @@ export async function clearAllData(page: Page): Promise<void> {
 export async function goToImportReady(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Import' }).click();
 
-  // Wait for the account selector to be visible
+  // Wizard step 1: choose source — click CSV Upload card
+  await page.getByText('CSV Upload').click();
+
+  // Wait for the account selector to be visible (wizard step 2)
   const accountSelect = page.locator('#account-select');
   await expect(accountSelect).toBeVisible({ timeout: 10_000 });
 
