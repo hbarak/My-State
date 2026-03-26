@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { domain } from '../domain/bootstrap';
 import type { ImportRunListItem } from '../../../../packages/domain/src/types/financialState';
 import { ImportRunDetail } from './ImportRunDetail';
+import { DevResetButton } from './DevResetButton';
 import styles from './DataTab.module.css';
 
 type LoadState = 'loading' | 'loaded' | 'error';
@@ -11,8 +12,9 @@ export function DataTab(): JSX.Element {
   const [runs, setRuns] = useState<readonly ImportRunListItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadRuns = useCallback(() => {
     let cancelled = false;
+    setLoadState('loading');
     void domain.importRunQueryService
       .listAllRuns()
       .then((items) => {
@@ -29,6 +31,10 @@ export function DataTab(): JSX.Element {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    return loadRuns();
+  }, [loadRuns]);
 
   return (
     <div className={styles.container} data-testid="data-tab">
@@ -47,6 +53,11 @@ export function DataTab(): JSX.Element {
           ))}
         </div>
       )}
+
+      <div className={styles.devZone}>
+        <h3 className={styles.devHeading}>Developer Tools</h3>
+        <DevResetButton onReset={loadRuns} />
+      </div>
     </div>
   );
 }

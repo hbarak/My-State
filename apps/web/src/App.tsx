@@ -273,8 +273,8 @@ export default function App(): JSX.Element {
 
   return (
     <main className={styles.shell}>
-      <header>
-        <h1>my-stocks</h1>
+      <header className={styles.header}>
+        <span className={styles.logo}>my-stocks</span>
         <nav className={styles.tabs}>
           <button
             className={activeView === 'portfolio' ? styles.tabActive : styles.tab}
@@ -295,6 +295,7 @@ export default function App(): JSX.Element {
             Data
           </button>
         </nav>
+        <div className={styles.headerActions} />
       </header>
 
       {activeView === 'portfolio' && bootstrapStatus === 'ready' && <PortfolioDashboard />}

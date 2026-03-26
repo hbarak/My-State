@@ -19,18 +19,34 @@
   }
 }
 
-.shell h1 {
-  margin: 0;
-  font-size: var(--font-size-xl);
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-2);
+}
+
+.logo {
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+
+.headerActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .tabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid var(--color-border);
-  margin-top: var(--space-2);
+  flex: 1;
+  justify-content: center;
 }
 
 .tab {
@@ -41,6 +57,7 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   cursor: pointer;
   transition: color var(--transition-fast), border-color var(--transition-fast);
 }

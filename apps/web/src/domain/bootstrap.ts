@@ -67,6 +67,9 @@ export const domain = {
   psagotApiClient,
   psagotApiSyncService,
   tickerResolver,
+  getProvenanceForSecurity: (securityId: string) => repository.getProvenanceForSecurity(securityId),
+  deleteImportRunContribution: (runId: string) => repository.deleteImportRunContribution(runId),
+  resetAllData: () => repository.resetAllData(),
 };
 
 export const SPRINT1_PROVIDER_ID = 'provider-web-demo';

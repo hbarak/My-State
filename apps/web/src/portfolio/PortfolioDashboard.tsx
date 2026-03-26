@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnrichedHoldings } from '../hooks/useEnrichedHoldings';
 import { SPRINT1_PROVIDER_ID, domain } from '../domain/bootstrap';
 import { PortfolioSummary } from './PortfolioSummary';
-import { AllocationChart } from './AllocationChart';
+import { AllocationDonut } from './AllocationDonut';
 import { PositionTable } from './PositionTable';
+import { PriceFreshnessBar } from './PriceFreshnessBar';
 import type { TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
 import styles from './PortfolioDashboard.module.css';
 
@@ -63,7 +64,6 @@ export function PortfolioDashboard(): JSX.Element {
   if (!data || data.positionCount === 0) {
     return (
       <div className={`${styles.card} ${styles.empty}`}>
-        <h2>Portfolio</h2>
         <p className={styles.muted}>No holdings imported yet. Upload a CSV to get started.</p>
       </div>
     );
@@ -73,18 +73,20 @@ export function PortfolioDashboard(): JSX.Element {
 
   return (
     <div className={styles.dashboard}>
-      <div className={styles.header}>
-        <h2>Portfolio</h2>
-        <button className={styles.refreshButton} onClick={refetch}>Refresh</button>
-      </div>
+      <PriceFreshnessBar
+        pricesFetchedAt={data.pricesFetchedAt}
+        priceSummary={data.priceSummary}
+        onRefresh={refetch}
+      />
 
       <PortfolioSummary enrichedState={data} />
 
       {currencies.map((currency) => (
-        <AllocationChart
+        <AllocationDonut
           key={currency}
           positions={data.positions}
           currency={currency}
+          onSelectSecurity={handleSelectPosition}
         />
       ))}
 
@@ -96,6 +98,7 @@ export function PortfolioDashboard(): JSX.Element {
         onCloseDrillDown={handleCloseDrillDown}
         tickerMappings={tickerMappings}
         onResetTicker={(securityId) => void handleResetTicker(securityId)}
+        onPortfolioChanged={refetch}
       />
     </div>
   );

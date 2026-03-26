@@ -12,6 +12,7 @@ interface PositionTableProps {
   readonly onCloseDrillDown: () => void;
   readonly tickerMappings?: ReadonlyMap<string, TickerMappingStatus>;
   readonly onResetTicker?: (securityId: string) => void;
+  readonly onPortfolioChanged?: () => void;
 }
 
 export function PositionTable({
@@ -22,6 +23,7 @@ export function PositionTable({
   onCloseDrillDown,
   tickerMappings,
   onResetTicker,
+  onPortfolioChanged,
 }: PositionTableProps): JSX.Element {
   const sorted = useMemo(
     () =>
@@ -62,6 +64,7 @@ export function PositionTable({
                 onClose={onCloseDrillDown}
                 tickerStatus={tickerMappings?.get(pos.securityId)}
                 onResetTicker={onResetTicker}
+                onPortfolioChanged={onPortfolioChanged}
               />
             );
           })}
@@ -79,6 +82,7 @@ function PositionRow({
   onClose,
   tickerStatus,
   onResetTicker,
+  onPortfolioChanged,
 }: {
   readonly position: EnrichedHoldingsPosition;
   readonly providerId: string;
@@ -87,6 +91,7 @@ function PositionRow({
   readonly onClose: () => void;
   readonly tickerStatus?: TickerMappingStatus;
   readonly onResetTicker?: (securityId: string) => void;
+  readonly onPortfolioChanged?: () => void;
 }): JSX.Element {
   return (
     <>
@@ -111,12 +116,17 @@ function PositionRow({
         <td className={`${styles.num} ${gainClass(position.unrealizedGain)}`}>
           {position.unrealizedGain !== undefined ? `${gainArrow(position.unrealizedGain)} ${formatSignedMoney(position.unrealizedGain, position.currency)}` : '—'}
         </td>
-        <td className={`${styles.num} ${gainClass(position.unrealizedGain)}`}>
-          {position.unrealizedGainPct !== undefined ? `${gainArrow(position.unrealizedGain)} ${formatPct(position.unrealizedGainPct)}` : '—'}
+        <td className={styles.num}>
+          <GainPill gain={position.unrealizedGain} gainPct={position.unrealizedGainPct} />
         </td>
       </tr>
       {isExpanded && (
-        <SecurityDrillDown position={position} providerId={providerId} onClose={onClose} />
+        <SecurityDrillDown
+          position={position}
+          providerId={providerId}
+          onClose={onClose}
+          onPortfolioChanged={onPortfolioChanged}
+        />
       )}
     </>
   );
@@ -164,6 +174,17 @@ function TickerCell({
       >
         {badgeLabel}
       </button>
+    </span>
+  );
+}
+
+function GainPill({ gain, gainPct }: { readonly gain?: number; readonly gainPct?: number }): JSX.Element {
+  if (gainPct === undefined) return <span>—</span>;
+  const isPositive = (gain ?? 0) >= 0;
+  const pillClass = isPositive ? styles.gainPill : styles.lossPill;
+  return (
+    <span className={pillClass}>
+      {gainArrow(gain)} {formatPct(gainPct)}
     </span>
   );
 }

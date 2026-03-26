@@ -3,17 +3,19 @@ import type { EnrichedHoldingsPosition } from '../../../../packages/domain/src/t
 import type { SecurityPosition, SecurityLot } from '../../../../packages/domain/src/services/SecurityLotQueryService';
 import { domain } from '../domain/bootstrap';
 import { AccountSection } from './AccountSection';
+import { PositionProvenance } from './PositionProvenance';
 import styles from './SecurityDrillDown.module.css';
 
 interface SecurityDrillDownProps {
   readonly position: EnrichedHoldingsPosition;
   readonly providerId: string;
   readonly onClose: () => void;
+  readonly onPortfolioChanged?: () => void;
 }
 
 type LotFetchState = 'loading' | 'ready' | 'error';
 
-export function SecurityDrillDown({ position, providerId, onClose }: SecurityDrillDownProps): JSX.Element {
+export function SecurityDrillDown({ position, providerId, onClose, onPortfolioChanged }: SecurityDrillDownProps): JSX.Element {
   const [fetchState, setFetchState] = useState<LotFetchState>('loading');
   const [securityPosition, setSecurityPosition] = useState<SecurityPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +104,14 @@ export function SecurityDrillDown({ position, providerId, onClose }: SecurityDri
           {fetchState === 'ready' && !securityPosition && (
             <p className={styles.muted}>No lot data found.</p>
           )}
+
+          <PositionProvenance
+            securityId={position.securityId}
+            onContributionDeleted={() => {
+              onPortfolioChanged?.();
+              loadLots();
+            }}
+          />
         </div>
       </td>
     </tr>
