@@ -94,14 +94,17 @@ export class TickerResolverService {
     }
 
     // Step 3: Skip auto-resolve for empty/garbage names
-    if (!sec.securityName?.trim()) {
+    if (!sec.securityName?.trim() && !sec.securityId?.trim()) {
       return null;
     }
 
-    // Step 4: Auto-resolve via name-search (existing behaviour)
+    // Step 4: Auto-resolve — try securityId (ISIN/TASE code) first, fall back to name
     let ticker: string | null;
     try {
-      ticker = await this.searcher.searchTicker(sec.securityName);
+      ticker = await this.searcher.searchTicker(sec.securityId);
+      if (!ticker && sec.securityName?.trim()) {
+        ticker = await this.searcher.searchTicker(sec.securityName);
+      }
     } catch {
       // Search failure — return null but do NOT cache
       return null;

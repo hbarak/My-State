@@ -18,6 +18,7 @@ interface AddDataWizardProps {
   // CSV upload
   readonly onFileSelected: (file: File) => void;
   readonly disabled: boolean;
+  readonly onReset: () => void;
 
   // Import state — shown in preview/done steps
   readonly importStatus: ImportStatus;
@@ -74,6 +75,7 @@ export function AddDataWizard({
   onContinueWithValidRows,
   onCancelImport,
   onUndoLastImport,
+  onReset,
 }: AddDataWizardProps): JSX.Element {
   const [source, setSource] = useState<Source | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,6 +113,7 @@ export function AddDataWizard({
 
   const handleStartOver = (): void => {
     setSource(null);
+    onReset();
   };
 
   return (

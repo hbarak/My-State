@@ -15,6 +15,7 @@ import { TelemetryService, ConsoleTelemetrySink } from '../../../../packages/dom
 import type { HttpPort } from '../../../../packages/domain/src/ports/HttpPort';
 import { YahooFinancePriceFetcher } from '../adapters/YahooFinancePriceFetcher';
 import { YahooFinanceTickerSearcher } from '../adapters/YahooFinanceTickerSearcher';
+import { IsraeliSecurityLookupImpl } from '../../../../packages/domain/src/data/israeliSecurities';
 
 const store = new BrowserLocalStorageJsonStore('my-stocks:web:');
 const repository = new LocalPortfolioRepository(store);
@@ -22,7 +23,8 @@ const telemetry = new TelemetryService(new ConsoleTelemetrySink());
 
 const priceFetcher = new YahooFinancePriceFetcher();
 const tickerSearcher = new YahooFinanceTickerSearcher();
-const tickerResolver = new TickerResolverService(repository, tickerSearcher);
+const israeliLookup = new IsraeliSecurityLookupImpl();
+const tickerResolver = new TickerResolverService(repository, tickerSearcher, israeliLookup);
 const priceService = new MarketPriceService(priceFetcher);
 const priceEnricher = new PortfolioPriceEnricher(tickerResolver, priceService);
 const financialStateService = new FinancialStateService(repository, priceEnricher);

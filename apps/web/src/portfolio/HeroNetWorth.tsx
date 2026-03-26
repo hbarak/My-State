@@ -20,12 +20,13 @@ export function HeroNetWorth({ enrichedState }: HeroNetWorthProps): JSX.Element 
   const cost = enrichedState.costTotalsByCurrency[primaryCurrency] ?? 0;
   const gain = enrichedState.unrealizedGainTotalsByCurrency[primaryCurrency];
   const gainPct = gain !== undefined && cost > 0 ? (gain / cost) * 100 : undefined;
+  const hasMarketValue = value !== undefined;
 
   return (
     <div className={styles.hero}>
-      <p className={styles.label}>Net Worth</p>
+      <p className={styles.label}>{hasMarketValue ? 'Net Worth' : 'Cost Basis'}</p>
       <p className={styles.amount} data-testid="hero-net-worth">
-        {value !== undefined ? formatCurrency(value, primaryCurrency) : '—'}
+        {hasMarketValue ? formatCurrency(value, primaryCurrency) : formatCurrency(cost, primaryCurrency)}
       </p>
       {gain !== undefined && gainPct !== undefined && (
         <p className={`${styles.delta} ${gain >= 0 ? styles.positive : styles.negative}`}>
@@ -33,8 +34,8 @@ export function HeroNetWorth({ enrichedState }: HeroNetWorthProps): JSX.Element 
           {formatSignedCurrency(gain, primaryCurrency)} ({formatSignedPct(gainPct)})
         </p>
       )}
-      {enrichedState.insufficientData && (
-        <p className={styles.partial}>Partial — some positions lack price data</p>
+      {!hasMarketValue && (
+        <p className={styles.partial}>Market prices unavailable — showing cost basis</p>
       )}
     </div>
   );

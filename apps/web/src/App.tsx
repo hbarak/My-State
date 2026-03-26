@@ -318,6 +318,7 @@ export default function App(): JSX.Element {
             const syntheticEvent = { target: { files: [file], value: '' } } as unknown as ChangeEvent<HTMLInputElement>;
             onFileChange(syntheticEvent);
           }}
+          onReset={resetRunState}
           disabled={!canUpload}
           importStatus={status}
           noticeMessage={noticeMessage}

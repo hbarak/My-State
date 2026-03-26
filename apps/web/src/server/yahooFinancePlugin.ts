@@ -1,6 +1,8 @@
 import type { Plugin, ViteDevServer, Connect } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
+
+const yahooFinance = new YahooFinance();
 
 /**
  * Vite dev server plugin that proxies Yahoo Finance API requests.
@@ -137,9 +139,10 @@ async function pricesHandler(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
-  let quotes: Awaited<ReturnType<typeof yahooFinance.quote>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let quotes: any;
   try {
-    quotes = await (yahooFinance as any).quote(tickers);
+    quotes = await yahooFinance.quote(tickers as any);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     sendError(res, 502, `Yahoo Finance error: ${message}`);
@@ -182,8 +185,9 @@ async function pricesHandler(req: IncomingMessage, res: ServerResponse): Promise
  * Body: { query: string }
  * Response: { ticker: string } | { ticker: null }
  *
- * Filters Yahoo Finance search results to EQUITY type and returns the first match.
- * Returns 400 for invalid requests, 502 if yahoo-finance2 throws.
+ * Probes Yahoo Finance by trying the query as a ticker directly (e.g. "604611" → "604611.TA"),
+ * then as-is. Returns the first candidate that has a valid market price.
+ * Returns 400 for invalid requests, 502 if yahoo-finance2 throws unexpectedly.
  */
 async function tickerSearchHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'POST') {
@@ -203,11 +207,7 @@ async function tickerSearchHandler(req: IncomingMessage, res: ServerResponse): P
     return;
   }
 
-  if (
-    typeof body !== 'object' ||
-    body === null ||
-    !('query' in body)
-  ) {
+  if (typeof body !== 'object' || body === null || !('query' in body)) {
     sendError(res, 400, 'Missing required field: query');
     return;
   }
@@ -219,24 +219,23 @@ async function tickerSearchHandler(req: IncomingMessage, res: ServerResponse): P
     return;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let searchResult: any;
-  try {
-    searchResult = await (yahooFinance as any).search(query.trim());
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    sendError(res, 502, `Yahoo Finance error: ${message}`);
-    return;
+  const q = query.trim();
+  // Try candidates in order: append .TA suffix (TASE), then bare query
+  const candidates = [`${q}.TA`, q];
+
+  for (const candidate of candidates) {
+    try {
+      const quote = await yahooFinance.quote(candidate);
+      if (quote?.regularMarketPrice != null) {
+        sendJson(res, { ticker: candidate });
+        return;
+      }
+    } catch {
+      // candidate not found — try next
+    }
   }
 
-  const equity = (searchResult.quotes as Array<{ quoteType?: string; symbol?: string }>).find((q) => q.quoteType === 'EQUITY');
-  // equity.symbol exists on EQUITY results; cast via unknown to satisfy the type union
-  const ticker: string | null =
-    equity != null && 'symbol' in equity && typeof equity.symbol === 'string'
-      ? equity.symbol
-      : null;
-
-  sendJson(res, { ticker });
+  sendJson(res, { ticker: null });
 }
 
 /**

@@ -97,7 +97,7 @@ describe('TickerResolverService — Israeli security lookup integration (AC 6 + 
     expect(calls).toHaveLength(0); // name-search was NOT called
   });
 
-  it('AC6-step2-miss: unknown ID falls through to name-search', async () => {
+  it('AC6-step2-miss: unknown ID falls through to ID-search then name-search', async () => {
     const repo = makeRepo();
     const { searcher, calls } = trackingSearcher({ 'Some Corp': 'SOME.TA' });
     const lookup = new IsraeliSecurityLookupImpl();
@@ -106,7 +106,7 @@ describe('TickerResolverService — Israeli security lookup integration (AC 6 + 
     const result = await service.resolveAll([{ securityId: '00000000', securityName: 'Some Corp' }]);
 
     expect(result.get('00000000')!.ticker).toBe('SOME.TA');
-    expect(calls).toHaveLength(1); // name-search was called
+    expect(calls).toHaveLength(2); // ID search (null) + name search
   });
 
   it('AC7-cache: resolving same ID twice only searches once (cache hit on step 1)', async () => {
@@ -176,7 +176,7 @@ describe('TickerResolverService — Israeli security lookup integration (AC 6 + 
 
     expect(result.get(knownId)!.ticker).toBe(expectedTicker);
     expect(result.get('00000000')!.ticker).toBe('UNKN.TA');
-    expect(calls).toHaveLength(1); // only one name-search for the unknown ID
+    expect(calls).toHaveLength(2); // ID search (null) + name search for the unknown ID
   });
 
   it('resolveAll without IsraeliSecurityLookup (backwards-compatible — lookup is optional)', async () => {
@@ -187,6 +187,6 @@ describe('TickerResolverService — Israeli security lookup integration (AC 6 + 
 
     const result = await service.resolveAll([{ securityId: '1084128', securityName: 'דלק קבוצה' }]);
     expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2); // ID search (null) + name search
   });
 });

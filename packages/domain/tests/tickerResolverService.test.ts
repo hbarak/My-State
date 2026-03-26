@@ -50,6 +50,7 @@ function makeRepo(): PortfolioRepository {
 describe('TickerResolverService', () => {
   it('auto-resolves a security name to a ticker and caches it', async () => {
     const repo = makeRepo();
+    // ID search returns null, name search returns ticker
     const { searcher, calls } = trackingSearcher({ 'דלק קבוצה': 'DLEKG.TA' });
     const service = new TickerResolverService(repo, searcher);
 
@@ -60,7 +61,8 @@ describe('TickerResolverService', () => {
     expect(result.get('1084128')).toBeDefined();
     expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
     expect(result.get('1084128')!.resolvedBy).toBe('auto');
-    expect(calls).toHaveLength(1);
+    // ID search + name search = 2 calls
+    expect(calls).toHaveLength(2);
 
     // Verify it was persisted
     const cached = await repo.getTickerMapping('1084128');
@@ -73,17 +75,17 @@ describe('TickerResolverService', () => {
     const { searcher, calls } = trackingSearcher({ 'דלק קבוצה': 'DLEKG.TA' });
     const service = new TickerResolverService(repo, searcher);
 
-    // First call — should search
+    // First call — ID search + name search = 2 calls
     await service.resolveAll([
       { securityId: '1084128', securityName: 'דלק קבוצה' },
     ]);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
 
-    // Second call — should use cache
+    // Second call — should use cache, no new calls
     const result = await service.resolveAll([
       { securityId: '1084128', securityName: 'דלק קבוצה' },
     ]);
-    expect(calls).toHaveLength(1); // no new call
+    expect(calls).toHaveLength(2); // no new call
     expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
   });
 
@@ -149,20 +151,20 @@ describe('TickerResolverService', () => {
     const repo = makeRepo();
     const { searcher, calls } = trackingSearcher({ 'דלק קבוצה': 'DLEKG.TA' });
 
-    // First instance resolves
+    // First instance resolves — ID search + name search = 2 calls
     const service1 = new TickerResolverService(repo, searcher);
     await service1.resolveAll([
       { securityId: '1084128', securityName: 'דלק קבוצה' },
     ]);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
 
-    // Second instance — same repo, new service
+    // Second instance — same repo, cached — no new search calls
     const service2 = new TickerResolverService(repo, searcher);
     const result = await service2.resolveAll([
       { securityId: '1084128', securityName: 'דלק קבוצה' },
     ]);
 
-    expect(calls).toHaveLength(1); // no new search call
+    expect(calls).toHaveLength(2); // no new search call
     expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
   });
 
@@ -208,19 +210,19 @@ describe('TickerResolverService', () => {
     });
     const service = new TickerResolverService(repo, searcher);
 
-    // Pre-cache one
+    // Pre-cache one — ID search + name search = 2 calls
     await service.resolveAll([
       { securityId: '1084128', securityName: 'דלק קבוצה' },
     ]);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
 
-    // Resolve both — one cached, one new
+    // Resolve both — first is cached, second needs ID + name search = 2 more
     const result = await service.resolveAll([
       { securityId: '1084128', securityName: 'דלק קבוצה' },
       { securityId: '629014', securityName: 'טבע' },
     ]);
 
-    expect(calls).toHaveLength(2); // only one new search call
+    expect(calls).toHaveLength(4); // 2 cached + 2 new (ID + name for טבע)
     expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
     expect(result.get('629014')!.ticker).toBe('TEVA.TA');
   });
@@ -292,9 +294,9 @@ describe('TickerResolverService', () => {
       const { searcher, calls } = trackingSearcher({ 'דלק קבוצה': 'DLEKG.TA' });
       const service = new TickerResolverService(repo, searcher);
 
-      // First resolve — caches the result
+      // First resolve — ID + name search = 2 calls
       await service.resolveAll([{ securityId: '1084128', securityName: 'דלק קבוצה' }]);
-      expect(calls).toHaveLength(1);
+      expect(calls).toHaveLength(2);
 
       // Reset the mapping
       await service.resetMapping('1084128');
@@ -302,9 +304,9 @@ describe('TickerResolverService', () => {
       // Mapping should no longer be in repository
       expect(await repo.getTickerMapping('1084128')).toBeNull();
 
-      // Next resolve should re-invoke searchTicker
+      // Next resolve should re-invoke searchTicker — ID + name = 2 more calls
       const result = await service.resolveAll([{ securityId: '1084128', securityName: 'דלק קבוצה' }]);
-      expect(calls).toHaveLength(2);
+      expect(calls).toHaveLength(4);
       expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
     });
 
@@ -329,9 +331,9 @@ describe('TickerResolverService', () => {
       await service.resetMapping('1084128');
       expect(await repo.getTickerMapping('1084128')).toBeNull();
 
-      // Next resolve should auto-search
+      // Next resolve should auto-search — ID + name = 2 calls
       const result = await service.resolveAll([{ securityId: '1084128', securityName: 'דלק קבוצה' }]);
-      expect(calls).toHaveLength(1);
+      expect(calls).toHaveLength(2);
       expect(result.get('1084128')!.resolvedBy).toBe('auto');
       expect(result.get('1084128')!.ticker).toBe('DLEKG.TA');
     });
