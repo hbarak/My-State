@@ -294,11 +294,11 @@ export function AddDataWizard({
                 </div>
               </div>
               <div className={styles.actions}>
+                <button type="button" className={styles.primaryButton} onClick={handleStartOver}>
+                  Import another
+                </button>
                 <button type="button" className={styles.secondaryButton} onClick={onUndoLastImport} disabled={isBusy}>
                   Undo
-                </button>
-                <button type="button" className={styles.secondaryButton} onClick={handleStartOver}>
-                  Import another
                 </button>
               </div>
             </>

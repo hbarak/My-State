@@ -92,7 +92,7 @@ export function SecurityDrillDown({ position, providerId, onClose, onPortfolioCh
                 currency={position.currency}
                 livePrice={position.currentPrice}
                 renderLotTable={renderLotTable}
-                defaultOpen={securityPosition.accountBreakdown.length <= 3}
+                defaultOpen={false}
               />
             ))
           )}

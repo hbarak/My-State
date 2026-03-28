@@ -43,7 +43,7 @@ export function PortfolioDashboard(): JSX.Element {
     setExpandedSecurityId(null);
   };
 
-  if (state === 'loading') {
+  if (state === 'loading' && !data) {
     return (
       <div className={styles.loading}>
         <p>Loading portfolio...</p>
@@ -81,15 +81,6 @@ export function PortfolioDashboard(): JSX.Element {
 
       <PortfolioSummary enrichedState={data} />
 
-      {currencies.map((currency) => (
-        <AllocationDonut
-          key={currency}
-          positions={data.positions}
-          currency={currency}
-          onSelectSecurity={handleSelectPosition}
-        />
-      ))}
-
       <PositionTable
         positions={data.positions}
         providerId={SPRINT1_PROVIDER_ID}
@@ -100,6 +91,15 @@ export function PortfolioDashboard(): JSX.Element {
         onResetTicker={(securityId) => void handleResetTicker(securityId)}
         onPortfolioChanged={refetch}
       />
+
+      {currencies.map((currency) => (
+        <AllocationDonut
+          key={currency}
+          positions={data.positions}
+          currency={currency}
+          onSelectSecurity={handleSelectPosition}
+        />
+      ))}
     </div>
   );
 }
