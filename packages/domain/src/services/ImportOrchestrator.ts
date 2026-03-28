@@ -603,8 +603,6 @@ function normalizeHoldingRow(
   const costBasisRaw = read('costBasis');
   const currency = read('currency');
   const actionDateRaw = read('actionDate');
-  const currentPriceRaw = read('currentPrice');
-
   if (!securityId || !securityName || !actionType || !quantityRaw || !costBasisRaw || !currency || !actionDateRaw) {
     return {
       errorCode: 'MISSING_REQUIRED_FIELDS',
@@ -614,7 +612,6 @@ function normalizeHoldingRow(
 
   const quantity = parseLocalizedNumber(quantityRaw);
   let costBasis = parseLocalizedNumber(costBasisRaw);
-  let currentPrice = currentPriceRaw ? parseLocalizedNumber(currentPriceRaw) : undefined;
   const actionDate = parseDayMonthYearDate(actionDateRaw);
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -626,9 +623,6 @@ function normalizeHoldingRow(
   if (!actionDate) {
     return { errorCode: 'INVALID_ACTION_DATE', errorMessage: `Invalid action date: ${actionDateRaw}` };
   }
-  if (typeof currentPrice !== 'undefined' && (!Number.isFinite(currentPrice) || currentPrice <= 0)) {
-    return { errorCode: 'INVALID_CURRENT_PRICE', errorMessage: `Invalid current price: ${currentPriceRaw}` };
-  }
 
   // BUG-03b: Normalize Hebrew currency names to ISO codes at import time.
   const normalizedCurrency = normalizeCurrencyCode(currency);
@@ -639,9 +633,6 @@ function normalizeHoldingRow(
   const isAgorot = profile.parsingRules?.monetaryUnit === 'agorot' && currency === 'ש"ח';
   if (isAgorot) {
     costBasis = costBasis / 100;
-    if (typeof currentPrice === 'number') {
-      currentPrice = currentPrice / 100;
-    }
   }
 
   return {

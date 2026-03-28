@@ -329,7 +329,7 @@ export class LocalPortfolioRepository implements PortfolioRepository {
       });
     }
 
-    return result;
+    return result.sort((a, b) => b.importDate.localeCompare(a.importDate));
   }
 
   async resetAllData(): Promise<void> {

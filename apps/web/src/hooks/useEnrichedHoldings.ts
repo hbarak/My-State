@@ -11,9 +11,18 @@ export interface UseEnrichedHoldingsResult {
   readonly refetch: () => void;
 }
 
+// Module-level cache: keeps the last fetched result per providerId so that
+// re-mounting (e.g. tab switch) shows stale data while revalidating instead
+// of blanking the net worth display. Only cleared on explicit reset.
+const cachedData = new Map<string, EnrichedHoldingsState>();
+
 export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResult {
-  const [status, setStatus] = useState<EnrichedHoldingsStatus>('loading');
-  const [data, setData] = useState<EnrichedHoldingsState | null>(null);
+  const [status, setStatus] = useState<EnrichedHoldingsStatus>(() =>
+    cachedData.has(providerId) ? 'ready' : 'loading',
+  );
+  const [data, setData] = useState<EnrichedHoldingsState | null>(
+    () => cachedData.get(providerId) ?? null,
+  );
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
@@ -26,6 +35,7 @@ export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResu
         .getEnrichedHoldings({ providerId })
         .then((result) => {
           if (reqId !== requestIdRef.current) return;
+          cachedData.set(providerId, result);
           setData(result);
           setStatus('ready');
         })

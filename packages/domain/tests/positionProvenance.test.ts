@@ -216,6 +216,29 @@ describe('getProvenanceForSecurity (AC 3)', () => {
     expect(provMSFT[0]!.lotCount).toBe(1);
   });
 
+  it('AC3-8: provenance is sorted by importDate descending (most recent first)', async () => {
+    const { repository, service, seed, importParams } = makeFixture();
+    await seed();
+
+    // Run 1: one lot. Run 2: cumulative CSV keeps run-1 lot + adds a new lot.
+    // Both runs have active lots — provenance should show 2 entries.
+    const csvRun1 = [CSV_HEADER, csvRow('NVDA', 'Nvidia', 5, 40000, '01/01/2026')].join('\n');
+    const csvRun2 = [
+      CSV_HEADER,
+      csvRow('NVDA', 'Nvidia', 5, 40000, '01/01/2026'), // duplicate of run-1 lot — stays as run-1's
+      csvRow('NVDA', 'Nvidia', 3, 42000, '01/02/2026'), // new lot — added to run-2
+    ].join('\n');
+
+    await service.commitImport(importParams(csvRun1, 'account-a'));
+    await service.commitImport(importParams(csvRun2, 'account-a'));
+
+    const provenance = await repository.getProvenanceForSecurity('NVDA');
+
+    expect(provenance).toHaveLength(2);
+    // Most recent import must come first
+    expect(provenance[0]!.importDate >= provenance[1]!.importDate).toBe(true);
+  });
+
   it('AC3-7: multi-account security provenance shows correct accountId per entry', async () => {
     const { repository, service, seed, importParams } = makeFixture();
     await seed();
