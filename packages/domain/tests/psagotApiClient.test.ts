@@ -192,15 +192,17 @@ describe('PsagotApiClient', () => {
 
   // ── Data Fetch: Accounts ──
 
-  it('A1: fetchAccounts returns parsed account list from WCF-wrapped response', async () => {
+  it('A1: fetchAccounts returns parsed account list from WCF double-wrapped response', async () => {
     const http = loginThenDataHttp(() => ({
       status: 200,
       body: {
-        UserAccount: [
-          { '-key': '150-190500', '-name': 'הרטמן ברק', '-nickName': 'טווח קצר' },
-          { '-key': '150-190501', '-name': 'הרטמן ברק', '-nickName': 'טווח ארוך (10)' },
-          { '-key': '150-190502', '-name': 'הרטמן ברק', '-nickName': '' },
-        ],
+        UserAccounts: {
+          UserAccount: [
+            { '-key': '150-190500', '-name': 'הרטמן ברק', '-nickName': 'טווח קצר' },
+            { '-key': '150-190501', '-name': 'הרטמן ברק', '-nickName': 'טווח ארוך (10)' },
+            { '-key': '150-190502', '-name': 'הרטמן ברק', '-nickName': '' },
+          ],
+        },
       },
     }));
     const client = new PsagotApiClient(http);

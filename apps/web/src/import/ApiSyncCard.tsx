@@ -85,13 +85,15 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
         apiAccounts,
       });
 
-      // Fetch balances for each account
-      const accountBalances = await Promise.all(
-        apiAccounts.map(async (acct) => ({
-          accountId: acct.key,
-          balances: await domain.psagotApiClient.fetchBalances(session, acct.key),
-        })),
-      );
+      // Fetch balances sequentially — Psagot API enforces 1s minimum between requests
+      const accountBalances: Array<{ accountId: string; balances: Awaited<ReturnType<typeof domain.psagotApiClient.fetchBalances>> }> = [];
+      for (const acct of apiAccounts) {
+        if (accountBalances.length > 0) {
+          await new Promise((r) => setTimeout(r, 1100));
+        }
+        const balances = await domain.psagotApiClient.fetchBalances(session, acct.key);
+        accountBalances.push({ accountId: acct.key, balances });
+      }
 
       // Sync all
       const summary = await domain.psagotApiSyncService.syncAllAccounts({

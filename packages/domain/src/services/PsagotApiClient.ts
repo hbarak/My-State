@@ -162,9 +162,10 @@ export class PsagotApiClient {
       session,
     );
 
-    // Response is WCF-wrapped: { UserAccount: [...] }
+    // Response is WCF double-wrapped: { UserAccounts: { UserAccount: [...] } }
     const body = response as Record<string, unknown>;
-    const accounts = (body.UserAccount ?? body) as unknown[];
+    const wrapper = body.UserAccounts as Record<string, unknown> | undefined;
+    const accounts = (wrapper?.UserAccount ?? body.UserAccount ?? body) as unknown[];
     if (!Array.isArray(accounts)) {
       return [];
     }
