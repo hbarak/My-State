@@ -187,12 +187,16 @@ export class PsagotApiClient {
     const response = await this.authenticatedGet(url, session);
 
     const body = response as Record<string, unknown>;
-    const view = body?.View as Record<string, unknown> | undefined;
-    if (!view) return [];
 
-    // Balances are nested: View.Account.AccountPosition.Balance[]
+    // Response may or may not be wrapped in "View":
+    //   { View: { Account: {...}, Meta: {...} } }   — accounts 150-224990, 150-235237
+    //   { Account: {...}, Meta: {...} }              — account 150-190500
+    const view = (body.View ?? body) as Record<string, unknown>;
     const account = view.Account as Record<string, unknown> | undefined;
-    const accountPosition = account?.AccountPosition as Record<string, unknown> | undefined;
+    if (!account) return [];
+
+    // Balances are nested: Account.AccountPosition.Balance[]
+    const accountPosition = account.AccountPosition as Record<string, unknown> | undefined;
     const rawBalances = (accountPosition?.Balance ?? []) as Record<string, unknown>[];
 
     // Security names in Meta use "-Key" (dash prefix), not "EquityNumber"
