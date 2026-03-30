@@ -4,7 +4,6 @@ export interface PsagotCredentials {
 }
 
 export interface PsagotPendingSession {
-  readonly sessionKey: string;
   readonly csession: string;
   readonly status: 'pending_otp';
 }

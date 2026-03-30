@@ -7,7 +7,7 @@ import type {
   PsagotPendingSession,
 } from '../types';
 
-const BASE_URL = 'https://trade1.psagot.co.il';
+const DEFAULT_BASE_URL = 'https://trade1.psagot.co.il';
 const LOGIN_PATH = '/V2/json2/login?catalog=unified';
 const ACCOUNTS_PATH = '/V2/json/accounts?catalog=unified';
 const BALANCES_PATH = '/V2/json2/account/view/balances';
@@ -32,7 +32,11 @@ function generateCsession(): string {
 }
 
 export class PsagotApiClient {
-  constructor(private readonly http: HttpPort) {}
+  private readonly baseUrl: string;
+
+  constructor(private readonly http: HttpPort, baseUrl?: string) {
+    this.baseUrl = baseUrl ?? DEFAULT_BASE_URL;
+  }
 
   async initiateLogin(credentials: PsagotCredentials): Promise<PsagotPendingSession> {
     const csession = generateCsession();
@@ -41,15 +45,18 @@ export class PsagotApiClient {
     try {
       response = await this.http.request({
         method: 'POST',
-        url: `${BASE_URL}${LOGIN_PATH}`,
+        url: `${this.baseUrl}${LOGIN_PATH}`,
         headers: {
           csession,
           'Content-Type': 'application/json',
         },
         body: {
-          username: credentials.username,
-          password: credentials.password,
-          Method: '2FA',
+          Login: {
+            '-Product': 'Android',
+            User: credentials.username,
+            Password: credentials.password,
+            Method: '2FA',
+          },
         },
         timeoutMs: DEFAULT_TIMEOUT_MS,
       });
@@ -59,26 +66,25 @@ export class PsagotApiClient {
       });
     }
 
+    const body = response.body as Record<string, unknown>;
+    const exception = body.Exception as Record<string, string> | undefined;
+
+    // MFATokenMissingException = success: credentials accepted, SMS OTP sent
+    if (exception?.['-ExceptionType'] === 'MFATokenMissingException') {
+      return { csession, status: 'pending_otp' };
+    }
+
+    // Any other exception or non-401 error is a real failure
+    if (exception) {
+      throw apiError('auth_failed', exception.Message ?? 'Login failed. Check your credentials.');
+    }
+
     if (response.status === 401 || response.status === 403) {
       throw apiError('auth_failed', 'Login failed. Check your credentials.');
     }
 
-    const body = response.body as Record<string, unknown>;
-
-    if (body.Error) {
-      throw apiError('auth_failed', String(body.Error));
-    }
-
-    const sessionKey = body.SessionKey as string;
-    if (!sessionKey) {
-      throw apiError('api_error', 'No session key in login response');
-    }
-
-    return {
-      sessionKey,
-      csession,
-      status: 'pending_otp',
-    };
+    // Unexpected success without MFA challenge — treat as pending anyway
+    return { csession, status: 'pending_otp' };
   }
 
   async verifyOtp(
@@ -90,17 +96,19 @@ export class PsagotApiClient {
     try {
       response = await this.http.request({
         method: 'POST',
-        url: `${BASE_URL}${LOGIN_PATH}`,
+        url: `${this.baseUrl}${LOGIN_PATH}`,
         headers: {
           csession: pending.csession,
-          session: pending.sessionKey,
           'Content-Type': 'application/json',
         },
         body: {
-          username: credentials.username,
-          password: credentials.password,
-          Method: '2FA',
-          Token: otpCode,
+          Login: {
+            '-Product': 'Android',
+            User: credentials.username,
+            Password: credentials.password,
+            Method: '2FA',
+            Token: otpCode,
+          },
         },
         timeoutMs: DEFAULT_TIMEOUT_MS,
       });
@@ -110,24 +118,30 @@ export class PsagotApiClient {
       });
     }
 
+    const body = response.body as Record<string, unknown>;
+    const exception = body.Exception as Record<string, string> | undefined;
+
+    if (exception) {
+      const exType = exception['-ExceptionType'] ?? '';
+      const message = exception.Message ?? '';
+
+      // Check expired before invalid — "Token has expired" contains both keywords
+      if (message.toLowerCase().includes('expired') || exType.includes('Expired')) {
+        throw apiError('otp_expired', 'OTP expired. Starting over.');
+      }
+      if (exType.includes('MFAToken') || message.includes('OTP') || message.includes('Token')) {
+        throw apiError('otp_invalid', 'Invalid OTP code. Please try again.');
+      }
+      throw apiError('auth_failed', message || 'Login failed. Check your credentials.');
+    }
+
     if (response.status === 401 || response.status === 403) {
       throw apiError('auth_failed', 'Login failed. Check your credentials.');
     }
 
-    const body = response.body as Record<string, unknown>;
-
-    if (body.Error) {
-      const errorStr = String(body.Error);
-      if (errorStr.includes('OTP') || body.ErrorCode === 'OTP_INVALID') {
-        throw apiError('otp_invalid', 'Invalid OTP code. Please try again.');
-      }
-      if (errorStr.includes('expired')) {
-        throw apiError('otp_expired', 'OTP expired. Starting over.');
-      }
-      throw apiError('auth_failed', errorStr);
-    }
-
-    const sessionKey = body.SessionKey as string;
+    // SessionKey is inside the WCF Login wrapper: { Login: { SessionKey: "..." } }
+    const login = body.Login as Record<string, unknown> | undefined;
+    const sessionKey = (login?.SessionKey ?? body.SessionKey) as string | undefined;
     if (!sessionKey) {
       throw apiError('api_error', 'No session key in OTP response');
     }
@@ -144,21 +158,23 @@ export class PsagotApiClient {
     this.assertValidSession(session);
 
     const response = await this.authenticatedGet(
-      `${BASE_URL}${ACCOUNTS_PATH}`,
+      `${this.baseUrl}${ACCOUNTS_PATH}`,
       session,
     );
 
-    const body = response as unknown[];
-    if (!Array.isArray(body)) {
+    // Response is WCF-wrapped: { UserAccount: [...] }
+    const body = response as Record<string, unknown>;
+    const accounts = (body.UserAccount ?? body) as unknown[];
+    if (!Array.isArray(accounts)) {
       return [];
     }
 
-    return body.map((item) => {
+    return accounts.map((item) => {
       const raw = item as Record<string, string>;
       return {
         key: raw['-key'] ?? '',
-        name: raw.AccountOwnerName ?? '',
-        nickname: raw.nickName ?? '',
+        name: raw['-name'] ?? raw.AccountOwnerName ?? '',
+        nickname: raw['-nickName'] ?? raw.nickName ?? '',
       };
     });
   }
@@ -166,7 +182,7 @@ export class PsagotApiClient {
   async fetchBalances(session: PsagotAuthorizedSession, accountId: string): Promise<PsagotBalance[]> {
     this.assertValidSession(session);
 
-    const url = `${BASE_URL}${BALANCES_PATH}?account=${encodeURIComponent(accountId)}&fields=hebName&currency=ils&catalog=unified`;
+    const url = `${this.baseUrl}${BALANCES_PATH}?account=${encodeURIComponent(accountId)}&fields=hebName&currency=ils&catalog=unified`;
     const response = await this.authenticatedGet(url, session);
 
     const body = response as Record<string, unknown>;

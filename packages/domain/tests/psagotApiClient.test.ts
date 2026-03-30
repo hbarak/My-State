@@ -12,19 +12,45 @@ function rejectHttp(error: Error): HttpPort {
 
 const CREDS = { username: '123456789', password: 'secret' } as const;
 
+/** Step-1 response: credentials accepted, SMS OTP sent */
+const MFA_TOKEN_MISSING: HttpResponse = {
+  status: 401,
+  body: { Exception: { '-ExceptionType': 'MFATokenMissingException', Message: 'MFA Token missing' } },
+};
+
+/** Step-2 response: OTP accepted, session authorized */
+const AUTHORIZED_SESSION: HttpResponse = {
+  status: 200,
+  body: { SessionKey: 'authorized-key' },
+};
+
+/**
+ * Returns a mock that simulates the real 2-step Psagot login:
+ *   Call 1 (no Token): 401 MFATokenMissing (OTP sent)
+ *   Call 2 (with Token): 200 SessionKey
+ *   Subsequent GET calls: delegate to `getData`
+ */
+function loginThenDataHttp(getData?: (req: HttpRequest) => HttpResponse): HttpPort {
+  return mockHttp((req) => {
+    if (req.method === 'POST') {
+      const body = req.body as Record<string, unknown>;
+      const login = body.Login as Record<string, string> | undefined;
+      if (!login?.Token) return MFA_TOKEN_MISSING;
+      return AUTHORIZED_SESSION;
+    }
+    return getData?.(req) ?? { status: 200, body: [] };
+  });
+}
+
 describe('PsagotApiClient', () => {
   // ── Login Step 1: Initiate ──
 
-  it('L1: successful step-1 login returns pending session with session key', async () => {
-    const http = mockHttp(() => ({
-      status: 200,
-      body: { SessionKey: 'uuid-session-key-123' },
-    }));
+  it('L1: successful step-1 returns pending session (MFATokenMissing = OTP sent)', async () => {
+    const http = mockHttp(() => MFA_TOKEN_MISSING);
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
 
-    expect(pending.sessionKey).toBe('uuid-session-key-123');
     expect(pending.status).toBe('pending_otp');
     expect(pending.csession).toBeDefined();
   });
@@ -32,7 +58,7 @@ describe('PsagotApiClient', () => {
   it('L2: step-1 login with wrong password throws auth_failed error', async () => {
     const http = mockHttp(() => ({
       status: 401,
-      body: { Error: 'Invalid credentials' },
+      body: { Exception: { '-ExceptionType': 'ApplicationException', Message: 'Invalid credentials' } },
     }));
     const client = new PsagotApiClient(http);
 
@@ -50,11 +76,8 @@ describe('PsagotApiClient', () => {
     });
   });
 
-  it('L4: step-1 sends correct headers and body', async () => {
-    const http = mockHttp(() => ({
-      status: 200,
-      body: { SessionKey: 'abc' },
-    }));
+  it('L4: step-1 sends correct WCF-wrapped body with -Product, User, Password, Method', async () => {
+    const http = mockHttp(() => MFA_TOKEN_MISSING);
     const client = new PsagotApiClient(http);
 
     await client.initiateLogin(CREDS);
@@ -64,9 +87,11 @@ describe('PsagotApiClient', () => {
     expect(call.url).toContain('/V2/json2/login');
     expect(call.url).toContain('catalog=unified');
     expect(call.headers?.csession).toBeDefined();
-    expect(call.body).toMatchObject({
-      username: '123456789',
-      password: 'secret',
+    const body = call.body as Record<string, unknown>;
+    expect(body.Login).toMatchObject({
+      '-Product': 'Android',
+      User: '123456789',
+      Password: 'secret',
       Method: '2FA',
     });
   });
@@ -74,13 +99,7 @@ describe('PsagotApiClient', () => {
   // ── Login Step 2: OTP Verification ──
 
   it('O1: successful OTP verification returns authorized session', async () => {
-    const http = mockHttp((req) => {
-      const body = req.body as Record<string, string>;
-      if (!body.Token) {
-        return { status: 200, body: { SessionKey: 'pending-key' } };
-      }
-      return { status: 200, body: { SessionKey: 'authorized-key' } };
-    });
+    const http = loginThenDataHttp();
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
@@ -93,11 +112,13 @@ describe('PsagotApiClient', () => {
 
   it('O2: wrong OTP code throws otp_invalid error', async () => {
     const http = mockHttp((req) => {
-      const body = req.body as Record<string, string>;
-      if (!body.Token) {
-        return { status: 200, body: { SessionKey: 'pending-key' } };
-      }
-      return { status: 200, body: { Error: 'Invalid OTP', ErrorCode: 'OTP_INVALID' } };
+      const body = req.body as Record<string, unknown>;
+      const login = body.Login as Record<string, string> | undefined;
+      if (!login?.Token) return MFA_TOKEN_MISSING;
+      return {
+        status: 401,
+        body: { Exception: { '-ExceptionType': 'MFATokenMissingException', Message: 'Invalid MFAToken' } },
+      };
     });
     const client = new PsagotApiClient(http);
 
@@ -107,14 +128,8 @@ describe('PsagotApiClient', () => {
     });
   });
 
-  it('O3: OTP step sends correct body with Token', async () => {
-    const http = mockHttp((req) => {
-      const body = req.body as Record<string, string>;
-      if (!body.Token) {
-        return { status: 200, body: { SessionKey: 'pending-key' } };
-      }
-      return { status: 200, body: { SessionKey: 'auth-key' } };
-    });
+  it('O3: OTP step sends correct body with Token in Login wrapper', async () => {
+    const http = loginThenDataHttp();
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
@@ -122,26 +137,20 @@ describe('PsagotApiClient', () => {
 
     const calls = (http.request as ReturnType<typeof vi.fn>).mock.calls;
     const otpCall = calls[1][0] as HttpRequest;
-    expect(otpCall.body).toMatchObject({
-      username: '123456789',
-      password: 'secret',
+    const body = otpCall.body as Record<string, unknown>;
+    expect(body.Login).toMatchObject({
+      '-Product': 'Android',
+      User: '123456789',
+      Password: 'secret',
       Method: '2FA',
       Token: '654321',
     });
-    expect(otpCall.headers?.session).toBe('pending-key');
   });
 
   // ── Session Management ──
 
   it('S1: session key included in data fetch headers', async () => {
-    const http = mockHttp((req) => {
-      if (req.method === 'POST') {
-        const body = req.body as Record<string, string>;
-        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-        return { status: 200, body: { SessionKey: 'auth-key' } };
-      }
-      return { status: 200, body: [] };
-    });
+    const http = loginThenDataHttp();
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
@@ -150,19 +159,14 @@ describe('PsagotApiClient', () => {
 
     const calls = (http.request as ReturnType<typeof vi.fn>).mock.calls;
     const fetchCall = calls[2][0] as HttpRequest;
-    expect(fetchCall.headers?.session).toBe('auth-key');
+    expect(fetchCall.headers?.session).toBe('authorized-key');
   });
 
   it('S2: session expiry mid-fetch throws session_expired error', async () => {
-    let callCount = 0;
-    const http = mockHttp((req) => {
-      if (req.method === 'POST') {
-        const body = req.body as Record<string, string>;
-        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-        return { status: 200, body: { SessionKey: 'auth-key' } };
-      }
-      callCount++;
-      if (callCount === 1) {
+    let getCalls = 0;
+    const http = loginThenDataHttp(() => {
+      getCalls++;
+      if (getCalls === 1) {
         return { status: 200, body: { Error: 'InvalidSessionException' } };
       }
       return { status: 200, body: [] };
@@ -188,22 +192,17 @@ describe('PsagotApiClient', () => {
 
   // ── Data Fetch: Accounts ──
 
-  it('A1: fetchAccounts returns parsed account list', async () => {
-    const http = mockHttp((req) => {
-      if (req.method === 'POST') {
-        const body = req.body as Record<string, string>;
-        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-        return { status: 200, body: { SessionKey: 'auth-key' } };
-      }
-      return {
-        status: 200,
-        body: [
-          { '-key': '150-190500', AccountOwnerName: 'ישראל ישראלי', nickName: 'טווח קצר' },
-          { '-key': '150-190501', AccountOwnerName: 'ישראל ישראלי', nickName: 'טווח ארוך' },
-          { '-key': '150-190502', AccountOwnerName: 'ישראל ישראלי', nickName: '' },
+  it('A1: fetchAccounts returns parsed account list from WCF-wrapped response', async () => {
+    const http = loginThenDataHttp(() => ({
+      status: 200,
+      body: {
+        UserAccount: [
+          { '-key': '150-190500', '-name': 'הרטמן ברק', '-nickName': 'טווח קצר' },
+          { '-key': '150-190501', '-name': 'הרטמן ברק', '-nickName': 'טווח ארוך (10)' },
+          { '-key': '150-190502', '-name': 'הרטמן ברק', '-nickName': '' },
         ],
-      };
-    });
+      },
+    }));
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
@@ -211,20 +210,13 @@ describe('PsagotApiClient', () => {
     const accounts = await client.fetchAccounts(session);
 
     expect(accounts).toHaveLength(3);
-    expect(accounts[0]).toEqual({ key: '150-190500', name: 'ישראל ישראלי', nickname: 'טווח קצר' });
-    expect(accounts[1]).toEqual({ key: '150-190501', name: 'ישראל ישראלי', nickname: 'טווח ארוך' });
-    expect(accounts[2]).toEqual({ key: '150-190502', name: 'ישראל ישראלי', nickname: '' });
+    expect(accounts[0]).toEqual({ key: '150-190500', name: 'הרטמן ברק', nickname: 'טווח קצר' });
+    expect(accounts[1]).toEqual({ key: '150-190501', name: 'הרטמן ברק', nickname: 'טווח ארוך (10)' });
+    expect(accounts[2]).toEqual({ key: '150-190502', name: 'הרטמן ברק', nickname: '' });
   });
 
   it('A2: fetchAccounts with empty response returns empty array', async () => {
-    const http = mockHttp((req) => {
-      if (req.method === 'POST') {
-        const body = req.body as Record<string, string>;
-        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-        return { status: 200, body: { SessionKey: 'auth-key' } };
-      }
-      return { status: 200, body: [] };
-    });
+    const http = loginThenDataHttp();
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
@@ -237,12 +229,7 @@ describe('PsagotApiClient', () => {
   // ── Data Fetch: Balances ──
 
   it('B1: fetchBalances returns parsed positions for account', async () => {
-    const http = mockHttp((req) => {
-      if (req.method === 'POST') {
-        const body = req.body as Record<string, string>;
-        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-        return { status: 200, body: { SessionKey: 'auth-key' } };
-      }
+    const http = loginThenDataHttp((req) => {
       if (req.url.includes('/balances')) {
         return {
           status: 200,
@@ -302,17 +289,10 @@ describe('PsagotApiClient', () => {
   });
 
   it('B2: fetchBalances for account with no positions returns empty array', async () => {
-    const http = mockHttp((req) => {
-      if (req.method === 'POST') {
-        const body = req.body as Record<string, string>;
-        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-        return { status: 200, body: { SessionKey: 'auth-key' } };
-      }
-      return {
-        status: 200,
-        body: { View: { Balance: [], Meta: { Security: [] } } },
-      };
-    });
+    const http = loginThenDataHttp(() => ({
+      status: 200,
+      body: { View: { Balance: [], Meta: { Security: [] } } },
+    }));
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
@@ -324,9 +304,13 @@ describe('PsagotApiClient', () => {
 
   it('O4: expired OTP throws otp_expired error', async () => {
     const http = mockHttp((req) => {
-      const body = req.body as Record<string, string>;
-      if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-      return { status: 200, body: { Error: 'Token has expired' } };
+      const body = req.body as Record<string, unknown>;
+      const login = body.Login as Record<string, string> | undefined;
+      if (!login?.Token) return MFA_TOKEN_MISSING;
+      return {
+        status: 401,
+        body: { Exception: { '-ExceptionType': 'ExpiredException', Message: 'Token has expired' } },
+      };
     });
     const client = new PsagotApiClient(http);
 
@@ -338,9 +322,10 @@ describe('PsagotApiClient', () => {
 
   it('O5: verifyOtp response missing SessionKey throws api_error', async () => {
     const http = mockHttp((req) => {
-      const body = req.body as Record<string, string>;
-      if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-      // OTP step returns success body but no SessionKey
+      const body = req.body as Record<string, unknown>;
+      const login = body.Login as Record<string, string> | undefined;
+      if (!login?.Token) return MFA_TOKEN_MISSING;
+      // OTP accepted but no SessionKey in response
       return { status: 200, body: { SomeOtherField: 'value' } };
     });
     const client = new PsagotApiClient(http);
@@ -351,16 +336,11 @@ describe('PsagotApiClient', () => {
     });
   });
 
-  it('A3: fetchAccounts with non-array response returns empty array', async () => {
-    const http = mockHttp((req) => {
-      if (req.method === 'POST') {
-        const body = req.body as Record<string, string>;
-        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-        return { status: 200, body: { SessionKey: 'auth-key' } };
-      }
-      // API returns object instead of array
-      return { status: 200, body: { unexpected: 'object' } };
-    });
+  it('A3: fetchAccounts with missing UserAccount returns empty array', async () => {
+    const http = loginThenDataHttp(() => ({
+      status: 200,
+      body: { unexpected: 'object' },
+    }));
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
@@ -373,11 +353,9 @@ describe('PsagotApiClient', () => {
   it('O6: verifyOtp network failure throws network_error', async () => {
     let callCount = 0;
     const http: HttpPort = {
-      request: vi.fn(async (req: HttpRequest) => {
+      request: vi.fn(async () => {
         callCount++;
-        if (callCount === 1) {
-          return { status: 200, body: { SessionKey: 'pending-key' } };
-        }
+        if (callCount === 1) return MFA_TOKEN_MISSING;
         throw new Error('fetch failed');
       }),
     };
@@ -389,11 +367,15 @@ describe('PsagotApiClient', () => {
     });
   });
 
-  it('O7: verifyOtp 401 response throws auth_failed error', async () => {
+  it('O7: verifyOtp 401 with generic exception throws auth_failed error', async () => {
     const http = mockHttp((req) => {
-      const body = req.body as Record<string, string>;
-      if (!body.Token) return { status: 200, body: { SessionKey: 'pending-key' } };
-      return { status: 401, body: { Error: 'Unauthorized' } };
+      const body = req.body as Record<string, unknown>;
+      const login = body.Login as Record<string, string> | undefined;
+      if (!login?.Token) return MFA_TOKEN_MISSING;
+      return {
+        status: 401,
+        body: { Exception: { '-ExceptionType': 'ApplicationException', Message: 'Unauthorized' } },
+      };
     });
     const client = new PsagotApiClient(http);
 
@@ -403,11 +385,15 @@ describe('PsagotApiClient', () => {
     });
   });
 
-  it('O8: verifyOtp generic Error body (not OTP, not expired) throws auth_failed', async () => {
+  it('O8: verifyOtp generic Exception (not OTP, not expired) throws auth_failed', async () => {
     const http = mockHttp((req) => {
-      const body = req.body as Record<string, string>;
-      if (!body.Token) return { status: 200, body: { SessionKey: 'pending-key' } };
-      return { status: 200, body: { Error: 'Account locked due to policy violation' } };
+      const body = req.body as Record<string, unknown>;
+      const login = body.Login as Record<string, string> | undefined;
+      if (!login?.Token) return MFA_TOKEN_MISSING;
+      return {
+        status: 200,
+        body: { Exception: { '-ExceptionType': 'ApplicationException', Message: 'Account locked' } },
+      };
     });
     const client = new PsagotApiClient(http);
 
@@ -418,14 +404,10 @@ describe('PsagotApiClient', () => {
   });
 
   it('A4: fetchAccounts non-session API error throws api_error', async () => {
-    const http = mockHttp((req) => {
-      if (req.method === 'POST') {
-        const body = req.body as Record<string, string>;
-        if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-        return { status: 200, body: { SessionKey: 'auth-key' } };
-      }
-      return { status: 200, body: { Error: 'ServiceUnavailableException' } };
-    });
+    const http = loginThenDataHttp(() => ({
+      status: 200,
+      body: { Error: 'ServiceUnavailableException' },
+    }));
     const client = new PsagotApiClient(http);
 
     const pending = await client.initiateLogin(CREDS);
@@ -436,16 +418,17 @@ describe('PsagotApiClient', () => {
   });
 
   it('B3: fetchBalances network failure throws network_error', async () => {
-    let callCount = 0;
+    let getCalls = 0;
     const http: HttpPort = {
       request: vi.fn(async (req: HttpRequest) => {
         if (req.method === 'POST') {
-          const body = req.body as Record<string, string>;
-          if (!body.Token) return { status: 200, body: { SessionKey: 'pk' } };
-          return { status: 200, body: { SessionKey: 'auth-key' } };
+          const body = req.body as Record<string, unknown>;
+          const login = body.Login as Record<string, string> | undefined;
+          if (!login?.Token) return MFA_TOKEN_MISSING;
+          return AUTHORIZED_SESSION;
         }
-        callCount++;
-        if (callCount === 1) return { status: 200, body: [] }; // fetchAccounts succeeds
+        getCalls++;
+        if (getCalls === 1) return { status: 200, body: [] }; // fetchAccounts succeeds
         throw new Error('Network timeout');
       }),
     };

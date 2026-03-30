@@ -13,16 +13,20 @@ import { PsagotApiSyncService } from '../../../../packages/domain/src/services/P
 import { BrowserLocalStorageJsonStore } from '../../../../packages/domain/src/stores/jsonStores';
 import { TelemetryService, ConsoleTelemetrySink } from '../../../../packages/domain/src/telemetry';
 import type { HttpPort } from '../../../../packages/domain/src/ports/HttpPort';
-import { YahooFinancePriceFetcher } from '../adapters/YahooFinancePriceFetcher';
-import { YahooFinanceTickerSearcher } from '../adapters/YahooFinanceTickerSearcher';
+import { EodhdPriceFetcher } from '../adapters/EodhdPriceFetcher';
+import { EodhdTickerSearcher } from '../adapters/EodhdTickerSearcher';
+import { MayaPriceFetcher } from '../adapters/MayaPriceFetcher';
+import { FanOutPriceFetcher } from '../adapters/FanOutPriceFetcher';
 import { IsraeliSecurityLookupImpl } from '../../../../packages/domain/src/data/israeliSecurities';
 
 const store = new BrowserLocalStorageJsonStore('my-stocks:web:');
 const repository = new LocalPortfolioRepository(store);
 const telemetry = new TelemetryService(new ConsoleTelemetrySink());
 
-const priceFetcher = new YahooFinancePriceFetcher();
-const tickerSearcher = new YahooFinanceTickerSearcher();
+const eodhdFetcher = new EodhdPriceFetcher();
+const mayaFetcher = new MayaPriceFetcher();
+const priceFetcher = new FanOutPriceFetcher(eodhdFetcher, mayaFetcher);
+const tickerSearcher = new EodhdTickerSearcher();
 const israeliLookup = new IsraeliSecurityLookupImpl();
 const tickerResolver = new TickerResolverService(repository, tickerSearcher, israeliLookup);
 const priceService = new MarketPriceService(priceFetcher);
@@ -54,7 +58,7 @@ const fetchHttpAdapter: HttpPort = {
   },
 };
 
-const psagotApiClient = new PsagotApiClient(fetchHttpAdapter);
+const psagotApiClient = new PsagotApiClient(fetchHttpAdapter, '/api/psagot');
 const psagotApiImportHandler = new PsagotApiImportHandler();
 const accountService = new AccountService(repository);
 const psagotApiSyncService = new PsagotApiSyncService(repository, accountService, psagotApiImportHandler);
