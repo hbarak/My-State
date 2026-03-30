@@ -230,33 +230,40 @@ describe('PsagotApiClient', () => {
 
   // ── Data Fetch: Balances ──
 
-  it('B1: fetchBalances returns parsed positions for account', async () => {
+  it('B1: fetchBalances returns parsed positions from nested AccountPosition', async () => {
     const http = loginThenDataHttp((req) => {
       if (req.url.includes('/balances')) {
         return {
           status: 200,
           body: {
             View: {
-              Balance: [
-                {
-                  EquityNumber: '5130919',
-                  OnlineNV: 100,
-                  LastRate: 9741,
-                  AveragePrice: 8500,
-                  OnlineVL: 974100,
-                  OnlineNisVL: 974100,
-                  AveragePriceProfitLoss: 124100,
-                  AveragePriceProfitLossNis: 124100,
-                  AveragePriceProfitLossPercentage: 14.6,
-                  OnlinePercentage: 45.2,
-                  CurrencyCode: 'ILS',
-                  Source: 'TA',
-                  SubAccount: '0',
+              Account: {
+                OnlineCash: 37044,
+                OnlineValue: 78113.17,
+                AccountPosition: {
+                  Balance: [
+                    {
+                      EquityNumber: '5130919',
+                      OnlineNV: 1708,
+                      LastRate: 267.11,
+                      AveragePrice: 292.79,
+                      OnlineVL: 4562.24,
+                      OnlineNisVL: 4562.24,
+                      AveragePriceProfitLoss: -438.61,
+                      AveragePriceProfitLossNis: -438.61,
+                      AveragePriceProfitLossPercentage: -8.77,
+                      OnlinePercentage: 5.84,
+                      CurrencyCode: 'ILS',
+                      Source: 'TA',
+                      SubAccount: '0',
+                    },
+                  ],
                 },
-              ],
+              },
               Meta: {
+                '-AsOfDate': '2026-03-30T15:59:10.7709020+03:00',
                 Security: [
-                  { EquityNumber: '5130919', hebName: 'בנק לאומי' },
+                  { '-Key': '5130919', hebName: null },
                 ],
               },
             },
@@ -274,26 +281,26 @@ describe('PsagotApiClient', () => {
     expect(balances).toHaveLength(1);
     expect(balances[0]).toEqual({
       equityNumber: '5130919',
-      quantity: 100,
-      lastRate: 9741,
-      averagePrice: 8500,
-      marketValue: 974100,
-      marketValueNis: 974100,
-      profitLoss: 124100,
-      profitLossNis: 124100,
-      profitLossPct: 14.6,
-      portfolioWeight: 45.2,
+      quantity: 1708,
+      lastRate: 267.11,
+      averagePrice: 292.79,
+      marketValue: 4562.24,
+      marketValueNis: 4562.24,
+      profitLoss: -438.61,
+      profitLossNis: -438.61,
+      profitLossPct: -8.77,
+      portfolioWeight: 5.84,
       currencyCode: 'ILS',
       source: 'TA',
       subAccount: '0',
-      hebName: 'בנק לאומי',
+      hebName: null,
     });
   });
 
   it('B2: fetchBalances for account with no positions returns empty array', async () => {
     const http = loginThenDataHttp(() => ({
       status: 200,
-      body: { View: { Balance: [], Meta: { Security: [] } } },
+      body: { View: { Account: { AccountPosition: { Balance: [] } }, Meta: { Security: [] } } },
     }));
     const client = new PsagotApiClient(http);
 

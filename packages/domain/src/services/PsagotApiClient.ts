@@ -190,16 +190,21 @@ export class PsagotApiClient {
     const view = body?.View as Record<string, unknown> | undefined;
     if (!view) return [];
 
-    const rawBalances = (view.Balance ?? []) as Record<string, unknown>[];
+    // Balances are nested: View.Account.AccountPosition.Balance[]
+    const account = view.Account as Record<string, unknown> | undefined;
+    const accountPosition = account?.AccountPosition as Record<string, unknown> | undefined;
+    const rawBalances = (accountPosition?.Balance ?? []) as Record<string, unknown>[];
+
+    // Security names in Meta use "-Key" (dash prefix), not "EquityNumber"
     const meta = view.Meta as Record<string, unknown> | undefined;
     const securities = (meta?.Security ?? []) as Record<string, unknown>[];
 
     const securityNameMap = new Map<string, string>();
     for (const sec of securities) {
-      const eqNum = String(sec.EquityNumber ?? '');
+      const key = String(sec['-Key'] ?? sec.EquityNumber ?? '');
       const name = sec.hebName as string | null;
-      if (eqNum && name) {
-        securityNameMap.set(eqNum, name);
+      if (key && name) {
+        securityNameMap.set(key, name);
       }
     }
 
