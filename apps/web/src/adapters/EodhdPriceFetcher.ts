@@ -1,23 +1,16 @@
 import type { PriceFetcher, PriceResult } from '../../../../packages/domain/src/services/MarketPriceService';
 
 /**
- * Browser-side PriceFetcher adapter.
+ * Browser-side PriceFetcher adapter for the EODHD price backend.
  *
- * yahoo-finance2 is a Node-only library (uses https module).  In the browser we
- * cannot call it directly.  For R2 we use a thin local proxy/stub.
- *
- * TODO(R3): replace with a backend API endpoint or serverless function that
- * calls yahoo-finance2 and returns PriceResult[].
+ * Calls the Vite dev server plugin at /api/prices which proxies to EODHD.
+ * Numeric TASE fund IDs are handled by FanOutPriceFetcher before reaching this adapter.
  */
-export class YahooFinancePriceFetcher implements PriceFetcher {
+export class EodhdPriceFetcher implements PriceFetcher {
   async fetchPrices(tickers: readonly string[]): Promise<readonly PriceResult[]> {
     if (tickers.length === 0) return [];
 
-    // For R2, attempt to call a local dev proxy at /api/prices.
-    // If the proxy is not running the fetch fails and the enricher
-    // falls back to cost-basis-only display (graceful degradation).
-    const url = '/api/prices';
-    const response = await fetch(url, {
+    const response = await fetch('/api/prices', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tickers }),

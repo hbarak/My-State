@@ -1,17 +1,13 @@
 import type { TickerSearcher } from '../../../../packages/domain/src/ports/TickerSearcher';
 
 /**
- * Browser-side TickerSearcher adapter.
+ * Browser-side TickerSearcher adapter for the EODHD ticker search backend.
  *
- * Like the PriceFetcher, yahoo-finance2 is Node-only.
- * This adapter calls a local dev proxy endpoint.
- *
- * TODO(R3): replace with backend API endpoint.
+ * Calls the Vite dev server plugin at /api/ticker-search which proxies to EODHD.
  */
-export class YahooFinanceTickerSearcher implements TickerSearcher {
+export class EodhdTickerSearcher implements TickerSearcher {
   async searchTicker(securityName: string): Promise<string | null> {
-    const url = '/api/ticker-search';
-    const response = await fetch(url, {
+    const response = await fetch('/api/ticker-search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: securityName }),

@@ -420,4 +420,73 @@ describe('TickerResolverService', () => {
       expect(byId['sec-3'].status).toBe('manual');
     });
   });
+
+  describe('TASE fund resolution via static table', () => {
+    it('resolves known TASE fund ID to itself via static table (ticker === securityId)', async () => {
+      const repo = makeRepo();
+      const { searcher, calls } = trackingSearcher({});
+      const { IsraeliSecurityLookupImpl } = await import('../src/data/israeliSecurities');
+      const service = new TickerResolverService(repo, searcher, new IsraeliSecurityLookupImpl());
+
+      const result = await service.resolveAll([
+        { securityId: '1183441', securityName: 'S&P500 אינ.חוץ' },
+      ]);
+
+      const mapping = result.get('1183441');
+      expect(mapping).toBeDefined();
+      expect(mapping!.ticker).toBe('1183441');
+      expect(mapping!.resolvedBy).toBe('static-table');
+      // Searcher must NOT be called — resolved from static table
+      expect(calls).toHaveLength(0);
+    });
+
+    it('caches fund static-table result — second call hits repo without calling searcher', async () => {
+      const repo = makeRepo();
+      const { searcher, calls } = trackingSearcher({});
+      const { IsraeliSecurityLookupImpl } = await import('../src/data/israeliSecurities');
+      const service = new TickerResolverService(repo, searcher, new IsraeliSecurityLookupImpl());
+
+      await service.resolveAll([{ securityId: '5112628', securityName: '125 תא.IBI' }]);
+      await service.resolveAll([{ securityId: '5112628', securityName: '125 תא.IBI' }]);
+
+      expect(calls).toHaveLength(0);
+      const cached = await repo.getTickerMapping('5112628');
+      expect(cached!.ticker).toBe('5112628');
+      expect(cached!.resolvedBy).toBe('static-table');
+    });
+
+    it('known stock ID resolves to .TA ticker, not to itself', async () => {
+      const repo = makeRepo();
+      const { searcher, calls } = trackingSearcher({});
+      const { IsraeliSecurityLookupImpl } = await import('../src/data/israeliSecurities');
+      const service = new TickerResolverService(repo, searcher, new IsraeliSecurityLookupImpl());
+
+      // 604611 = Bank Leumi (LUMI.TA) in ISRAELI_SECURITY_TABLE
+      const result = await service.resolveAll([
+        { securityId: '604611', securityName: 'בנק לאומי' },
+      ]);
+
+      const mapping = result.get('604611');
+      expect(mapping!.ticker).toBe('LUMI.TA');
+      expect(mapping!.resolvedBy).toBe('static-table');
+      expect(calls).toHaveLength(0);
+    });
+
+    it('manual override takes precedence over static table fund entry', async () => {
+      const repo = makeRepo();
+      const searcher = stubSearcher({});
+      const { IsraeliSecurityLookupImpl } = await import('../src/data/israeliSecurities');
+      const service = new TickerResolverService(repo, searcher, new IsraeliSecurityLookupImpl());
+
+      await service.setManualMapping('1183441', 'S&P500 אינ.חוץ', 'CUSTOM.TICKER');
+
+      const result = await service.resolveAll([
+        { securityId: '1183441', securityName: 'S&P500 אינ.חוץ' },
+      ]);
+
+      const mapping = result.get('1183441');
+      expect(mapping!.ticker).toBe('CUSTOM.TICKER');
+      expect(mapping!.resolvedBy).toBe('manual');
+    });
+  });
 });

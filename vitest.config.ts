@@ -2,8 +2,12 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Only include domain tests, exclude E2E (Playwright) tests
-    include: ['packages/domain/tests/**/*.{test,spec}.ts'],
+    // Domain tests + web adapter tests. Excludes E2E (Playwright) tests.
+    include: [
+      'packages/domain/tests/**/*.{test,spec}.ts',
+      'apps/web/src/adapters/__tests__/**/*.{test,spec}.ts',
+      'apps/web/src/server/__tests__/**/*.{test,spec}.ts',
+    ],
     exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
   },
 });
