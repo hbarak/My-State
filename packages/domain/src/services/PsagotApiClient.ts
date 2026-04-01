@@ -53,7 +53,11 @@ function unwrapBalanceResponse(response: unknown): UnwrappedBalanceResponse {
   }
 
   const accountPosition = account.AccountPosition as Record<string, unknown> | undefined;
-  const rawBalances = (accountPosition?.Balance ?? []) as Record<string, unknown>[];
+  const balanceRaw = accountPosition?.Balance ?? [];
+  if (!Array.isArray(balanceRaw)) {
+    throw apiError('api_error', 'Unexpected balances response shape — Balance is not an array');
+  }
+  const rawBalances = balanceRaw as Record<string, unknown>[];
 
   const meta = view.Meta as Record<string, unknown> | undefined;
   const securities = (meta?.Security ?? []) as Record<string, unknown>[];
