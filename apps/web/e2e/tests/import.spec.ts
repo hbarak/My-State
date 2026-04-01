@@ -29,7 +29,7 @@ test('import valid CSV — holdings appear in portfolio', async ({ page }) => {
   await page.getByRole('button', { name: 'Portfolio' }).click();
 
   // Wait for portfolio to load and show positions
-  await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
 
   // Verify the position table is present with data
   const table = page.locator('table');

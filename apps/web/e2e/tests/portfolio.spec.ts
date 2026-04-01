@@ -25,7 +25,7 @@ test('portfolio shows positions after import', async ({ page }) => {
 
   // Switch to Portfolio
   await page.getByRole('button', { name: 'Portfolio' }).click();
-  await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
 
   const table = page.locator('table');
   await expect(table).toBeVisible();
@@ -44,7 +44,7 @@ test('click position row — expands drill-down', async ({ page }) => {
 
   // Go to Portfolio
   await page.getByRole('button', { name: 'Portfolio' }).click();
-  await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
 
   // Click the first position row to expand drill-down
   const firstRow = page.locator('table tbody tr').first();
