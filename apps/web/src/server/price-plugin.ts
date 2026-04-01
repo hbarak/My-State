@@ -386,6 +386,11 @@ async function mayaPricesHandler(req: IncomingMessage, res: ServerResponse): Pro
     return;
   }
 
+  if (tickers.length > MAX_TICKERS) {
+    sendError(res, 400, `Too many tickers: max ${MAX_TICKERS}`);
+    return;
+  }
+
   const results = await Promise.all(tickers.map(fetchOneMayaFund));
   sendJson(res, results);
 }

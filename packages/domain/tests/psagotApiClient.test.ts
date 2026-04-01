@@ -345,7 +345,7 @@ describe('PsagotApiClient', () => {
     });
   });
 
-  it('A3: fetchAccounts with missing UserAccount returns empty array', async () => {
+  it('A3: fetchAccounts with missing UserAccount throws api_error', async () => {
     const http = loginThenDataHttp(() => ({
       status: 200,
       body: { unexpected: 'object' },
@@ -354,9 +354,10 @@ describe('PsagotApiClient', () => {
 
     const pending = await client.initiateLogin(CREDS);
     const session = await client.verifyOtp(pending, '123', CREDS);
-    const accounts = await client.fetchAccounts(session);
 
-    expect(accounts).toEqual([]);
+    await expect(client.fetchAccounts(session)).rejects.toMatchObject({
+      type: 'api_error',
+    });
   });
 
   it('O6: verifyOtp network failure throws network_error', async () => {

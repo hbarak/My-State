@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PsagotCredentials, PsagotPendingSession, PsagotApiError } from '../../../../packages/domain/src/types/psagotApi';
 import type { ApiSyncSummary } from '../../../../packages/domain/src/services/PsagotApiSyncService';
 import type { Account } from '../../../../packages/domain/src/types/account';
@@ -8,6 +8,12 @@ import { OtpModal } from './OtpModal';
 import { SyncProgressStepper, type StepStatus } from './SyncProgressStepper';
 import { SyncResultsSummary } from './SyncResultsSummary';
 import styles from './ApiSyncCard.module.css';
+
+const MAX_OTP_ATTEMPTS = 3;
+
+function isPsagotApiError(err: unknown): err is PsagotApiError {
+  return typeof err === 'object' && err !== null && 'type' in err;
+}
 
 type SyncPhase =
   | 'idle'
@@ -38,7 +44,13 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
   const pendingSessionRef = useRef<PsagotPendingSession | null>(null);
   const credentialsRef = useRef<PsagotCredentials | null>(null);
 
-  const isBusy = phase !== 'idle' && phase !== 'complete' && phase !== 'error' && phase !== 'entering_credentials';
+  // Clear sensitive refs on unmount to avoid leaving credentials in memory
+  useEffect(() => {
+    return () => {
+      pendingSessionRef.current = null;
+      credentialsRef.current = null;
+    };
+  }, []);
 
   const handleStartSync = useCallback(() => {
     setPhase('entering_credentials');
@@ -113,22 +125,23 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
       setPhase('complete');
       onAccountsChanged();
     } catch (err) {
-      const apiErr = err as PsagotApiError;
-      if (apiErr.type === 'otp_invalid') {
-        const nextAttempts = otpAttempts + 1;
-        setOtpAttempts(nextAttempts);
-        if (nextAttempts >= 3) {
-          handleSyncError(new Error('Too many incorrect attempts. Please start over.'));
+      if (isPsagotApiError(err)) {
+        if (err.type === 'otp_invalid') {
+          const nextAttempts = otpAttempts + 1;
+          setOtpAttempts(nextAttempts);
+          if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+            handleSyncError(new Error('Too many incorrect attempts. Please start over.'));
+            return;
+          }
+          setOtpError(err.message);
+          setPhase('awaiting_otp');
           return;
         }
-        setOtpError(apiErr.message);
-        setPhase('awaiting_otp');
-        return;
-      }
-      if (apiErr.type === 'otp_expired') {
-        setOtpError(apiErr.message);
-        setPhase('awaiting_otp');
-        return;
+        if (err.type === 'otp_expired') {
+          setOtpError(err.message);
+          setPhase('awaiting_otp');
+          return;
+        }
       }
       handleSyncError(err);
     }
@@ -170,8 +183,12 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
   function handleSyncError(err: unknown): void {
     pendingSessionRef.current = null;
     credentialsRef.current = null;
-    const apiErr = err as PsagotApiError;
-    setErrorMessage(apiErr.message ?? 'An unexpected error occurred.');
+    const message = isPsagotApiError(err)
+      ? err.message
+      : err instanceof Error
+        ? err.message
+        : 'An unexpected error occurred.';
+    setErrorMessage(message);
     setPhase('error');
   }
 
@@ -225,7 +242,7 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
       {phase === 'error' && (
         <>
           <SyncProgressStepper steps={steps} />
-          <div className={styles.errorBox}>
+          <div className={styles.errorBox} role="alert">
             <p>{errorMessage}</p>
           </div>
           <button type="button" className={styles.secondaryButton} onClick={handleRetry}>

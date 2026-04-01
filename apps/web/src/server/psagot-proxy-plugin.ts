@@ -91,16 +91,6 @@ async function proxyHandler(
     }
   }
 
-  // Debug: log outgoing request (remove once stable)
-  // eslint-disable-next-line no-console
-  console.log(`[psagot-proxy] ${req.method} ${targetUrl}`);
-  // eslint-disable-next-line no-console
-  console.log(`[psagot-proxy] headers:`, JSON.stringify(headers));
-  if (bodyStr) {
-    // eslint-disable-next-line no-console
-    console.log(`[psagot-proxy] body: ${bodyStr}`);
-  }
-
   // Forward to Psagot API
   try {
     const fetchInit: RequestInit = {
@@ -116,16 +106,10 @@ async function proxyHandler(
     const contentType = upstream.headers.get('content-type') ?? 'application/json';
     const responseBody = await upstream.text();
 
-    // Debug: log response (remove once stable)
-    // eslint-disable-next-line no-console
-    console.log(`[psagot-proxy] ← ${upstream.status} ${responseBody.slice(0, 500)}`);
-
     res.writeHead(upstream.status, { 'Content-Type': contentType });
     res.end(responseBody);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // eslint-disable-next-line no-console
-    console.error(`[psagot-proxy] ERROR:`, err);
     sendError(res, 502, `Psagot proxy error: ${message}`);
   }
 }

@@ -31,6 +31,45 @@ function generateCsession(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+interface UnwrappedBalanceResponse {
+  readonly rawBalances: Record<string, unknown>[];
+  readonly securityNameMap: Map<string, string>;
+}
+
+/**
+ * Handles the two structural variants of the Psagot balances response:
+ *   { View: { Account: {...}, Meta: {...} } }  — most accounts
+ *   { Account: {...}, Meta: {...} }             — some accounts (no View wrapper)
+ *
+ * Throws a typed api_error if the Account field is missing, so callers can
+ * distinguish "no positions" from "response shape changed."
+ */
+function unwrapBalanceResponse(response: unknown): UnwrappedBalanceResponse {
+  const body = response as Record<string, unknown>;
+  const view = (body.View ?? body) as Record<string, unknown>;
+  const account = view.Account as Record<string, unknown> | undefined;
+  if (!account) {
+    throw apiError('api_error', 'Unexpected balances response shape — Account missing');
+  }
+
+  const accountPosition = account.AccountPosition as Record<string, unknown> | undefined;
+  const rawBalances = (accountPosition?.Balance ?? []) as Record<string, unknown>[];
+
+  const meta = view.Meta as Record<string, unknown> | undefined;
+  const securities = (meta?.Security ?? []) as Record<string, unknown>[];
+
+  const securityNameMap = new Map<string, string>();
+  for (const sec of securities) {
+    const key = String(sec['-Key'] ?? sec.EquityNumber ?? '');
+    const name = sec.hebName as string | null;
+    if (key && name) {
+      securityNameMap.set(key, name);
+    }
+  }
+
+  return { rawBalances, securityNameMap };
+}
+
 export class PsagotApiClient {
   private readonly baseUrl: string;
 
@@ -167,7 +206,7 @@ export class PsagotApiClient {
     const wrapper = body.UserAccounts as Record<string, unknown> | undefined;
     const accounts = (wrapper?.UserAccount ?? body.UserAccount ?? body) as unknown[];
     if (!Array.isArray(accounts)) {
-      return [];
+      throw apiError('api_error', 'Unexpected accounts response shape — UserAccounts missing or not an array');
     }
 
     return accounts.map((item) => {
@@ -186,31 +225,7 @@ export class PsagotApiClient {
     const url = `${this.baseUrl}${BALANCES_PATH}?account=${encodeURIComponent(accountId)}&fields=hebName&currency=ils&catalog=unified`;
     const response = await this.authenticatedGet(url, session);
 
-    const body = response as Record<string, unknown>;
-
-    // Response may or may not be wrapped in "View":
-    //   { View: { Account: {...}, Meta: {...} } }   — accounts 150-224990, 150-235237
-    //   { Account: {...}, Meta: {...} }              — account 150-190500
-    const view = (body.View ?? body) as Record<string, unknown>;
-    const account = view.Account as Record<string, unknown> | undefined;
-    if (!account) return [];
-
-    // Balances are nested: Account.AccountPosition.Balance[]
-    const accountPosition = account.AccountPosition as Record<string, unknown> | undefined;
-    const rawBalances = (accountPosition?.Balance ?? []) as Record<string, unknown>[];
-
-    // Security names in Meta use "-Key" (dash prefix), not "EquityNumber"
-    const meta = view.Meta as Record<string, unknown> | undefined;
-    const securities = (meta?.Security ?? []) as Record<string, unknown>[];
-
-    const securityNameMap = new Map<string, string>();
-    for (const sec of securities) {
-      const key = String(sec['-Key'] ?? sec.EquityNumber ?? '');
-      const name = sec.hebName as string | null;
-      if (key && name) {
-        securityNameMap.set(key, name);
-      }
-    }
+    const { rawBalances, securityNameMap } = unwrapBalanceResponse(response);
 
     return rawBalances.map((b) => {
       const equityNumber = String(b.EquityNumber ?? '');
