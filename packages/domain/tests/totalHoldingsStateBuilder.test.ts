@@ -51,6 +51,73 @@ function holding(overrides: Partial<ProviderHoldingRecord>): ProviderHoldingReco
   };
 }
 
+describe('TotalHoldingsStateBuilder — source preference', () => {
+  it('branch (a): API wins — API records used, CSV records excluded for same security', async () => {
+    const repository = new LocalPortfolioRepository(new InMemoryStore());
+    const builder = new TotalHoldingsStateBuilder(repository);
+
+    await repository.addImportRun(run({ id: 'run-api', providerIntegrationId: 'api-integration' }));
+    await repository.addImportRun(run({ id: 'run-csv', providerIntegrationId: 'csv-integration' }));
+
+    // Same provider + securityId — API record has quantity 7, CSV has quantity 3
+    await repository.upsertHoldingRecords([
+      holding({ id: 'api-h1', importRunId: 'run-api', providerIntegrationId: 'api-integration', securityId: 'AAA', quantity: 7, costBasis: 10 }),
+      holding({ id: 'csv-h1', importRunId: 'run-csv', providerIntegrationId: 'csv-integration', securityId: 'AAA', quantity: 3, costBasis: 10 }),
+    ]);
+
+    const state = await builder.build({ providerId: 'provider-1', apiIntegrationIds: new Set(['api-integration']) });
+
+    const aaa = state.positions.find((p) => p.securityId === 'AAA');
+    expect(aaa?.quantity).toBe(7); // API wins, CSV excluded
+    expect(aaa?.sourceRecordIds).toEqual(['api-h1']);
+    expect(aaa?.sourceRecordIds).not.toContain('csv-h1');
+  });
+
+  it('branch (b): CSV lot fields preserved — CSV records used when they coexist with API for a different security', async () => {
+    const repository = new LocalPortfolioRepository(new InMemoryStore());
+    const builder = new TotalHoldingsStateBuilder(repository);
+
+    await repository.addImportRun(run({ id: 'run-api', providerIntegrationId: 'api-integration' }));
+    await repository.addImportRun(run({ id: 'run-csv', providerIntegrationId: 'csv-integration' }));
+
+    // AAA has both API and CSV records — API should win
+    // BBB has only CSV records — CSV preserved
+    await repository.upsertHoldingRecords([
+      holding({ id: 'api-aaa', importRunId: 'run-api', providerIntegrationId: 'api-integration', securityId: 'AAA', quantity: 5 }),
+      holding({ id: 'csv-aaa', importRunId: 'run-csv', providerIntegrationId: 'csv-integration', securityId: 'AAA', quantity: 3 }),
+      holding({ id: 'csv-bbb', importRunId: 'run-csv', providerIntegrationId: 'csv-integration', securityId: 'BBB', quantity: 4, costBasis: 50 }),
+    ]);
+
+    const state = await builder.build({ providerId: 'provider-1', apiIntegrationIds: new Set(['api-integration']) });
+
+    const aaa = state.positions.find((p) => p.securityId === 'AAA');
+    const bbb = state.positions.find((p) => p.securityId === 'BBB');
+
+    expect(aaa?.quantity).toBe(5); // API wins for AAA
+    expect(bbb?.quantity).toBe(4); // CSV preserved for BBB (no API record)
+    expect(bbb?.sourceRecordIds).toEqual(['csv-bbb']);
+  });
+
+  it('branch (c): CSV fallback — all records used when no API integration IDs provided', async () => {
+    const repository = new LocalPortfolioRepository(new InMemoryStore());
+    const builder = new TotalHoldingsStateBuilder(repository);
+
+    await repository.addImportRun(run({ id: 'run-csv', providerIntegrationId: 'csv-integration' }));
+
+    await repository.upsertHoldingRecords([
+      holding({ id: 'csv-h1', importRunId: 'run-csv', providerIntegrationId: 'csv-integration', securityId: 'AAA', quantity: 3 }),
+      holding({ id: 'csv-h2', importRunId: 'run-csv', providerIntegrationId: 'csv-integration', securityId: 'BBB', quantity: 2 }),
+    ]);
+
+    // No apiIntegrationIds — CSV is the only source, all records used
+    const state = await builder.build({ providerId: 'provider-1' });
+
+    expect(state.positionCount).toBe(2);
+    expect(state.positions.find((p) => p.securityId === 'AAA')?.quantity).toBe(3);
+    expect(state.positions.find((p) => p.securityId === 'BBB')?.quantity).toBe(2);
+  });
+});
+
 describe('TotalHoldingsStateBuilder', () => {
   it('aggregates all lots per security and sums totals across lots', async () => {
     const repository = new LocalPortfolioRepository(new InMemoryStore());

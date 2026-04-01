@@ -5,7 +5,7 @@ import { aggregateHoldingLots } from './aggregateHoldingLots';
 export class TotalHoldingsStateBuilder {
   constructor(private readonly repository: PortfolioRepository) {}
 
-  async build(params?: { providerId?: string }): Promise<TotalHoldingsState> {
+  async build(params?: { providerId?: string; apiIntegrationIds?: ReadonlySet<string> }): Promise<TotalHoldingsState> {
     const records = params?.providerId
       ? await this.repository.listHoldingRecordsByProvider(params.providerId)
       : await this.repository.listHoldingRecords();
@@ -22,15 +22,24 @@ export class TotalHoldingsStateBuilder {
 
     const eligible = records.filter((record) => isRecordEligible(record, validRuns));
 
-    const lotsByKey = new Map<string, ProviderHoldingRecord[]>();
+    const groupedByKey = new Map<string, ProviderHoldingRecord[]>();
     for (const record of eligible) {
       const key = positionKey(record);
-      const existing = lotsByKey.get(key);
+      const existing = groupedByKey.get(key);
       if (existing) {
         existing.push(record);
       } else {
-        lotsByKey.set(key, [record]);
+        groupedByKey.set(key, [record]);
       }
+    }
+
+    const apiIntegrationIds = params?.apiIntegrationIds;
+    const lotsByKey = new Map<string, ProviderHoldingRecord[]>();
+    for (const [key, lots] of groupedByKey) {
+      const filtered = apiIntegrationIds && apiIntegrationIds.size > 0
+        ? applySourcePreference(lots, apiIntegrationIds)
+        : lots;
+      lotsByKey.set(key, filtered);
     }
 
     const positions = Array.from(lotsByKey.entries())
@@ -129,6 +138,19 @@ function aggregatePosition(key: string, lots: ProviderHoldingRecord[]): TotalHol
     sourceImportRunIds: Array.from(sourceRunIdSet).sort(),
     accountIds: Array.from(accountIdSet).sort(),
   };
+}
+
+/**
+ * Source-preference filter: if any record in a group comes from an API integration,
+ * return only the API-sourced records. CSV records are used only as fallback when
+ * no API record exists for the group.
+ */
+function applySourcePreference(
+  lots: ProviderHoldingRecord[],
+  apiIntegrationIds: ReadonlySet<string>,
+): ProviderHoldingRecord[] {
+  const apiLots = lots.filter((lot) => apiIntegrationIds.has(lot.providerIntegrationId));
+  return apiLots.length > 0 ? apiLots : lots;
 }
 
 function hashRecordSet(recordIds: string[]): string {
