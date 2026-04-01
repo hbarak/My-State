@@ -1,0 +1,69 @@
+{
+  "View": {
+    "Account": {
+      "AccountPosition": {
+        "Balance": [
+          {
+            "EquityNumber": "5130919",
+            "OnlineNV": 100,
+            "LastRate": 9741,
+            "AveragePrice": 8500,
+            "OnlineVL": 974100,
+            "OnlineNisVL": 974100,
+            "AveragePriceProfitLoss": 124100,
+            "AveragePriceProfitLossNis": 124100,
+            "AveragePriceProfitLossPercentage": 14.6,
+            "OnlinePercentage": 45.2,
+            "CurrencyCode": "ILS",
+            "Source": "TA",
+            "SubAccount": "0"
+          },
+          {
+            "EquityNumber": "1082695",
+            "OnlineNV": 50,
+            "LastRate": 18200,
+            "AveragePrice": 15000,
+            "OnlineVL": 910000,
+            "OnlineNisVL": 910000,
+            "AveragePriceProfitLoss": 160000,
+            "AveragePriceProfitLossNis": 160000,
+            "AveragePriceProfitLossPercentage": 21.3,
+            "OnlinePercentage": 42.2,
+            "CurrencyCode": "ILS",
+            "Source": "TA",
+            "SubAccount": "0"
+          },
+          {
+            "EquityNumber": "9999001",
+            "OnlineNV": 10,
+            "LastRate": 1500,
+            "AveragePrice": 1200,
+            "OnlineVL": 15000,
+            "OnlineNisVL": 56250,
+            "AveragePriceProfitLoss": 3000,
+            "AveragePriceProfitLossNis": 11250,
+            "AveragePriceProfitLossPercentage": 25.0,
+            "OnlinePercentage": 2.6,
+            "CurrencyCode": "USD",
+            "Source": "NYSE",
+            "SubAccount": "0"
+          }
+        ]
+      }
+    },
+    "Meta": {
+      "Security": [
+        {
+          "-Key": "5130919",
+          "EquityNumber": "5130919",
+          "hebName": "בנק לאומי"
+        },
+        {
+          "-Key": "1082695",
+          "EquityNumber": "1082695",
+          "hebName": "טבע תעשיות פרמסיוטיות"
+        }
+      ]
+    }
+  }
+}

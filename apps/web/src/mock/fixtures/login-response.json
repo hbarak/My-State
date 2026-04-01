@@ -1,0 +1,6 @@
+{
+  "Exception": {
+    "-ExceptionType": "MFATokenMissingException",
+    "Message": "OTP sent via SMS"
+  }
+}

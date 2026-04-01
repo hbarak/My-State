@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "VITE_MOCK_API=true vite",
     "build": "vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:adapters": "vitest run --config ../../vitest.config.ts apps/web/src/adapters/__tests__",
