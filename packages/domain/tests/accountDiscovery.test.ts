@@ -205,6 +205,99 @@ describe('Account Auto-Discovery', () => {
     expect(accounts[0].id).toBe('existing');
   });
 
+  // ── Default Account Merge ──
+
+  it('M1: default account silently merged into real account ID from API', async () => {
+    const { service, repository } = makeFixture();
+
+    // Seed: default account + a holding record + an import run referencing 'default'
+    const now = new Date().toISOString();
+    await repository.upsertAccount({ id: 'default', providerId: PROVIDER_ID, name: 'Default Account', createdAt: now, updatedAt: now });
+    await repository.addImportRun({
+      id: 'run-1',
+      providerId: PROVIDER_ID,
+      providerIntegrationId: 'csv-integration',
+      accountId: 'default',
+      sourceName: 'test.csv',
+      status: 'success',
+      startedAt: now,
+      importedCount: 1,
+      skippedCount: 0,
+      errorCount: 0,
+      isUndoable: true,
+    });
+    await repository.upsertHoldingRecords([{
+      id: 'hr-1',
+      providerId: PROVIDER_ID,
+      providerIntegrationId: 'csv-integration',
+      accountId: 'default',
+      importRunId: 'run-1',
+      securityId: 'AAA',
+      securityName: 'AAA Corp',
+      actionType: 'קניה',
+      quantity: 10,
+      costBasis: 100,
+      currency: 'ILS',
+      actionDate: '2026-01-01',
+      createdAt: now,
+      updatedAt: now,
+    }]);
+
+    // Discover: API tells us the real account ID is '123456789'
+    const result = await service.discoverAccounts({
+      providerId: PROVIDER_ID,
+      apiAccounts: [{ key: '123456789', name: 'ישראל ישראלי', nickname: 'Main' }],
+    });
+
+    // After merge: only 1 account should exist, with real ID
+    const accounts = await repository.listAccountsByProvider(PROVIDER_ID);
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0].id).toBe('123456789');
+    expect(result.created).toHaveLength(1);
+    expect(result.created[0].id).toBe('123456789');
+
+    // Holding records should now reference the real account ID
+    const records = await repository.listHoldingRecordsByAccount(PROVIDER_ID, '123456789');
+    expect(records).toHaveLength(1);
+    expect(records[0].id).toBe('hr-1');
+
+    // Import run should now reference the real account ID
+    const runs = await repository.listImportRunsByProvider(PROVIDER_ID);
+    expect(runs[0].accountId).toBe('123456789');
+  });
+
+  it('M2: merge preserves createdAt from the default account', async () => {
+    const { service, repository } = makeFixture();
+
+    const createdAt = '2025-01-15T00:00:00.000Z';
+    await repository.upsertAccount({ id: 'default', providerId: PROVIDER_ID, name: 'Default Account', createdAt, updatedAt: createdAt });
+
+    await service.discoverAccounts({
+      providerId: PROVIDER_ID,
+      apiAccounts: [{ key: '999-111', name: 'ישראל ישראלי', nickname: 'Account' }],
+    });
+
+    const account = await repository.getAccount(PROVIDER_ID, '999-111');
+    expect(account?.createdAt).toBe(createdAt);
+  });
+
+  it('M3: no merge when API account ID already exists (not a default account)', async () => {
+    const { service, repository } = makeFixture();
+
+    const now = new Date().toISOString();
+    await repository.upsertAccount({ id: '150-190500', providerId: PROVIDER_ID, name: 'Existing', createdAt: now, updatedAt: now });
+    await repository.upsertAccount({ id: 'default', providerId: PROVIDER_ID, name: 'Default Account', createdAt: now, updatedAt: now });
+
+    await service.discoverAccounts({
+      providerId: PROVIDER_ID,
+      apiAccounts: [{ key: '150-190500', name: 'ישראל ישראלי', nickname: 'Main' }],
+    });
+
+    // Both accounts remain — existing real account found, no merge with default
+    const accounts = await repository.listAccountsByProvider(PROVIDER_ID);
+    expect(accounts.map((a) => a.id).sort()).toEqual(['150-190500', 'default']);
+  });
+
   it('G5: discovery adds new account when API returns previously unknown account', async () => {
     const { service, repository } = makeFixture();
 

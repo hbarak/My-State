@@ -44,6 +44,7 @@ export interface PortfolioRepository {
   upsertAccount(account: Account): Promise<void>;
   getAccount(providerId: string, accountId: string): Promise<Account | null>;
   listAccountsByProvider(providerId: string): Promise<Account[]>;
+  deleteAccount(providerId: string, accountId: string): Promise<void>;
   upsertProvider(provider: Provider): Promise<void>;
   getProviders(): Promise<Provider[]>;
   upsertIntegration(integration: ProviderIntegration): Promise<void>;
@@ -59,6 +60,7 @@ export interface PortfolioRepository {
   getSymbolMapping(providerId: string, providerSymbol: string): Promise<ProviderSymbolMapping | null>;
   addImportRun(run: PortfolioImportRun): Promise<void>;
   updateImportRun(run: PortfolioImportRun): Promise<void>;
+  updateImportRunAccountId(oldAccountId: string, newAccountId: string, providerId: string): Promise<number>;
   listImportRuns(): Promise<PortfolioImportRun[]>;
   listImportRunsByProvider(providerId: string): Promise<PortfolioImportRun[]>;
   getLastSuccessfulImportRun(providerIntegrationId: string): Promise<PortfolioImportRun | null>;
@@ -112,6 +114,12 @@ export class LocalPortfolioRepository implements PortfolioRepository {
   async listAccountsByProvider(providerId: string): Promise<Account[]> {
     const list = await this.getList<Account>(KEYS.accounts);
     return list.filter((item) => item.providerId === providerId);
+  }
+
+  async deleteAccount(providerId: string, accountId: string): Promise<void> {
+    const list = await this.getList<Account>(KEYS.accounts);
+    const next = list.filter((item) => !(item.providerId === providerId && item.id === accountId));
+    await this.setList(KEYS.accounts, next);
   }
 
   async upsertProvider(provider: Provider): Promise<void> {
@@ -206,6 +214,20 @@ export class LocalPortfolioRepository implements PortfolioRepository {
   async updateImportRun(run: PortfolioImportRun): Promise<void> {
     const list = await this.getList<PortfolioImportRun>(KEYS.importRuns);
     await this.setList(KEYS.importRuns, upsertById(list, run));
+  }
+
+  async updateImportRunAccountId(oldAccountId: string, newAccountId: string, providerId: string): Promise<number> {
+    const list = await this.getList<PortfolioImportRun>(KEYS.importRuns);
+    let count = 0;
+    const updated = list.map((run) => {
+      if (run.providerId === providerId && run.accountId === oldAccountId) {
+        count += 1;
+        return { ...run, accountId: newAccountId };
+      }
+      return run;
+    });
+    await this.setList(KEYS.importRuns, updated);
+    return count;
   }
 
   listImportRuns(): Promise<PortfolioImportRun[]> {
