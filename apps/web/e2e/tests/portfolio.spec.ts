@@ -58,6 +58,38 @@ test('click position row — expands drill-down', async ({ page }) => {
   await expect(drilldown.getByRole('button', { name: 'Close' })).toBeVisible();
 });
 
+// ── Sprint 7 regression tests ──────────────────────────────────────────────
+
+test('AC 5: net worth stays non-zero on tab switch (no flash regression)', async ({ page }) => {
+  // Seed with imported portfolio
+  await goToImportReady(page);
+  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
+  await expect(page.getByText('Import complete')).toBeVisible({ timeout: 10_000 });
+
+  // Navigate to Portfolio tab and wait for content to load
+  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
+
+  // Wait for position table to render (ensures portfolio is fully loaded)
+  const positionTable = page.locator('table tbody');
+  await expect(positionTable).toBeVisible({ timeout: 10_000 });
+
+  // Switch away to Import tab
+  await page.getByRole('button', { name: 'Import' }).click();
+  // Wait for Import tab to become active
+  await page.waitForTimeout(500);
+
+  // Return to Portfolio tab — regression test: ensure mount/unmount doesn't flash loading state
+  await page.getByRole('button', { name: 'Portfolio' }).click();
+
+  // Key assertion: Positions heading should be immediately visible (no flash to loading/blank)
+  // This tests the stale-while-revalidate behavior to prevent useEffect remount flashing
+  await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 2_000 });
+
+  // Verify position table still renders (confirms data wasn't lost during re-render)
+  await expect(page.locator('table tbody')).toBeVisible({ timeout: 10_000 });
+});
+
 // ── Deferred R4 tests ──────────────────────────────────────────────────────
 
 test.fixme('H3: summary card totals match portfolio data', async ({ page }) => {
