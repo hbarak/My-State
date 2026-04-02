@@ -122,11 +122,11 @@ describe('psagotMockPlugin — integration', () => {
     }
   });
 
-  it('GET /V2/json2/account/view/balances?account=123-456789 → Balance array with positions', async () => {
+  it('GET /V2/json2/account/view/balances?account=150-190500 → Balance array with positions', async () => {
     const { baseUrl, close } = await startTestServer();
     try {
       const { status, json } = await getJson(
-        `${baseUrl}/V2/json2/account/view/balances?account=123-456789&fields=hebName&currency=ils&catalog=unified`,
+        `${baseUrl}/V2/json2/account/view/balances?account=150-190500&fields=hebName&currency=ils&catalog=unified`,
       );
       expect(status).toBe(200);
       const body = json as Record<string, unknown>;
@@ -155,6 +155,26 @@ describe('psagotMockPlugin — integration', () => {
       const account = view.Account as Record<string, unknown>;
       const accountPos = account.AccountPosition as Record<string, unknown>;
       expect(accountPos.Balance).toEqual([]);
+    } finally {
+      await close();
+    }
+  });
+
+  it('GET /V2/json2/market/table/simple?securities=5130919,5112628 → filtered Security array with HebName and CurrencyDivider', async () => {
+    const { baseUrl, close } = await startTestServer();
+    try {
+      const { status, json } = await getJson(
+        `${baseUrl}/V2/json2/market/table/simple?securities=5130919%2C5112628&fields=HebName,CurrencyDivider&catalog=unified`,
+      );
+      expect(status).toBe(200);
+      const body = json as Record<string, unknown>;
+      const table = body.Table as Record<string, unknown>;
+      const securities = table.Security as Record<string, unknown>[];
+      expect(Array.isArray(securities)).toBe(true);
+      expect(securities).toHaveLength(2);
+      expect(securities.map((s) => s['-Key']).sort()).toEqual(['5112628', '5130919']);
+      expect(typeof securities[0].HebName).toBe('string');
+      expect(securities[0].CurrencyDivider).toBe(100);
     } finally {
       await close();
     }

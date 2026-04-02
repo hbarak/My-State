@@ -26,7 +26,7 @@ test('import valid CSV — holdings appear in portfolio', async ({ page }) => {
   await expect(page.getByText('Imported')).toBeVisible();
 
   // Switch to Portfolio tab and verify holdings appear
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
 
   // Wait for portfolio to load and show positions
   await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
@@ -70,6 +70,6 @@ test('import CSV with invalid rows — cancel discards all', async ({ page }) =>
   await expect(page.getByText(/Import cancelled/i)).toBeVisible();
 
   // Switch to Portfolio and verify no holdings
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await expect(page.getByText(/No holdings imported yet/i)).toBeVisible({ timeout: 10_000 });
 });

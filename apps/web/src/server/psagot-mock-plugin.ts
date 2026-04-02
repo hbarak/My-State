@@ -79,6 +79,17 @@ async function mockHandler(
     return;
   }
 
+  // GET /V2/json2/market/table/simple?securities={ids}
+  if (method === 'GET' && url.startsWith('/V2/json2/market/table/simple')) {
+    const fixture = JSON.parse(loadFixture('security-info')) as { Table: { Security: Record<string, unknown>[] } };
+    const requestedIds = new Set(
+      (new URL(url, 'http://localhost').searchParams.get('securities') ?? '').split(',').map((s) => s.trim()),
+    );
+    const filtered = fixture.Table.Security.filter((s) => requestedIds.has(String(s['-Key'])));
+    sendJson(res, 200, JSON.stringify({ Table: { ...fixture.Table, Security: filtered } }));
+    return;
+  }
+
   // GET /V2/json2/account/view/balances?account={id}
   if (method === 'GET' && url.startsWith('/V2/json2/account/view/balances')) {
     const accountParam = new URL(url, 'http://localhost').searchParams.get('account') ?? 'default';

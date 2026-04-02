@@ -334,7 +334,7 @@ describe('ImportRunQueryService', () => {
       providerId: apiProvider.id,
       providerIntegrationId: apiIntegration.id,
       accountId: apiAccount.id,
-      agorotConversion: false,
+      securityInfoMap: new Map(),
     });
 
     const allRuns = await queryService.listAllRuns();

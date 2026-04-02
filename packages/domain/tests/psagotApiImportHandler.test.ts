@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PsagotApiImportHandler } from '../src/services/PsagotApiImportHandler';
-import type { PsagotBalance, ProviderHoldingRecord } from '../src/types';
+import type { PsagotBalance, PsagotSecurityInfo, ProviderHoldingRecord } from '../src/types';
 
 const PROVIDER_ID = 'provider-psagot';
 const INTEGRATION_ID = 'psagot-api-holdings';
@@ -22,12 +22,31 @@ function makeBalance(overrides: Partial<PsagotBalance> = {}): PsagotBalance {
     currencyCode: 'ILS',
     source: 'TA',
     subAccount: '0',
-    hebName: 'בנק לאומי',
+    hebName: null,
     ...overrides,
   };
 }
 
-function mapOne(balance: PsagotBalance, existingRecords: ProviderHoldingRecord[] = []): ProviderHoldingRecord[] {
+function makeSecurityInfo(overrides: Partial<PsagotSecurityInfo> = {}): PsagotSecurityInfo {
+  return {
+    equityNumber: '5130919',
+    hebName: 'בנק לאומי',
+    engName: 'Bank Leumi',
+    engSymbol: null,
+    exchange: 'TASE',
+    currencyCode: 'ILS',
+    currencyDivider: 100,
+    isForeign: false,
+    itemType: 'Stock',
+    ...overrides,
+  };
+}
+
+function mapOne(
+  balance: PsagotBalance,
+  securityInfoMap: Map<string, PsagotSecurityInfo> = new Map(),
+  existingRecords: ProviderHoldingRecord[] = [],
+): ProviderHoldingRecord[] {
   const handler = new PsagotApiImportHandler();
   return handler.mapBalancesToHoldingRecords({
     balances: [balance],
@@ -36,68 +55,79 @@ function mapOne(balance: PsagotBalance, existingRecords: ProviderHoldingRecord[]
     accountId: ACCOUNT_ID,
     importRunId: RUN_ID,
     existingRecords,
-    agorotConversion: true,
+    securityInfoMap,
   });
+}
+
+function infoMap(...infos: PsagotSecurityInfo[]): Map<string, PsagotSecurityInfo> {
+  return new Map(infos.map((i) => [i.equityNumber, i]));
 }
 
 describe('PsagotApiImportHandler', () => {
   // ── Field Mapping ──
 
   it('M1: maps equityNumber to securityId', () => {
-    const records = mapOne(makeBalance({ equityNumber: '5130919' }));
+    const records = mapOne(makeBalance({ equityNumber: '5130919' }), infoMap(makeSecurityInfo()));
     expect(records[0].securityId).toBe('5130919');
   });
 
   it('M2: maps quantity (OnlineNV) to quantity', () => {
-    const records = mapOne(makeBalance({ quantity: 250 }));
+    const records = mapOne(makeBalance({ quantity: 250 }), infoMap(makeSecurityInfo()));
     expect(records[0].quantity).toBe(250);
   });
 
-  it('M3: maps averagePrice to costBasis with agorot conversion for ILS', () => {
-    const records = mapOne(makeBalance({ averagePrice: 8500, currencyCode: 'ILS' }));
+  it('M3: ILS with currencyDivider=100 divides averagePrice by 100 (agorot)', () => {
+    const records = mapOne(
+      makeBalance({ averagePrice: 8500, currencyCode: 'ILS' }),
+      infoMap(makeSecurityInfo({ currencyDivider: 100 })),
+    );
     expect(records[0].costBasis).toBe(85); // 8500 agorot = 85 ILS
   });
 
   it('M4: maps currencyCode to currency', () => {
-    const records = mapOne(makeBalance({ currencyCode: 'ILS' }));
+    const records = mapOne(makeBalance({ currencyCode: 'ILS' }), infoMap(makeSecurityInfo()));
     expect(records[0].currency).toBe('ILS');
   });
 
-  it('M5: maps USD currency positions without agorot conversion', () => {
-    const handler = new PsagotApiImportHandler();
-    const records = handler.mapBalancesToHoldingRecords({
-      balances: [makeBalance({ currencyCode: 'USD', averagePrice: 150, lastRate: 160 })],
-      providerId: PROVIDER_ID,
-      providerIntegrationId: INTEGRATION_ID,
-      accountId: ACCOUNT_ID,
-      importRunId: RUN_ID,
-      existingRecords: [],
-      agorotConversion: true,
-    });
-    expect(records[0].costBasis).toBe(150); // USD: no conversion
+  it('M5: USD security with currencyDivider=1 — no conversion', () => {
+    const records = mapOne(
+      makeBalance({ currencyCode: 'USD', averagePrice: 150, lastRate: 160 }),
+      infoMap(makeSecurityInfo({ currencyDivider: 1, currencyCode: 'USD', isForeign: true })),
+    );
+    expect(records[0].costBasis).toBe(150);
     expect(records[0].currentPrice).toBe(160);
   });
 
-  it('M6: maps ILS agorot values — costBasis and currentPrice converted', () => {
-    const records = mapOne(makeBalance({ averagePrice: 4550, lastRate: 4700, currencyCode: 'ILS' }));
+  it('M6: ILS agorot — costBasis and currentPrice both divided', () => {
+    const records = mapOne(
+      makeBalance({ averagePrice: 4550, lastRate: 4700, currencyCode: 'ILS' }),
+      infoMap(makeSecurityInfo({ currencyDivider: 100 })),
+    );
     expect(records[0].costBasis).toBe(45.5);
     expect(records[0].currentPrice).toBe(47);
   });
 
   it('M7: maps lastRate to currentPrice', () => {
-    const records = mapOne(makeBalance({ lastRate: 9741, currencyCode: 'ILS' }));
+    const records = mapOne(
+      makeBalance({ lastRate: 9741, currencyCode: 'ILS' }),
+      infoMap(makeSecurityInfo({ currencyDivider: 100 })),
+    );
     expect(records[0].currentPrice).toBe(97.41);
   });
 
-  it('M8: securityName from hebName when available', () => {
-    const records = mapOne(makeBalance({ hebName: 'בנק לאומי' }));
+  it('M8: securityName from hebName in security info', () => {
+    const records = mapOne(makeBalance(), infoMap(makeSecurityInfo({ hebName: 'בנק לאומי' })));
     expect(records[0].securityName).toBe('בנק לאומי');
   });
 
-  it('M9: output record has correct shape with all required fields', () => {
-    const records = mapOne(makeBalance());
-    const r = records[0];
+  it('M8b: falls back to engName when hebName is null', () => {
+    const records = mapOne(makeBalance(), infoMap(makeSecurityInfo({ hebName: null, engName: 'Bank Leumi' })));
+    expect(records[0].securityName).toBe('Bank Leumi');
+  });
 
+  it('M9: output record has correct shape with all required fields', () => {
+    const records = mapOne(makeBalance(), infoMap(makeSecurityInfo()));
+    const r = records[0];
     expect(r.id).toBeDefined();
     expect(r.providerId).toBe(PROVIDER_ID);
     expect(r.providerIntegrationId).toBe(INTEGRATION_ID);
@@ -116,7 +146,7 @@ describe('PsagotApiImportHandler', () => {
 
   // ── Edge Cases ──
 
-  it('E1: null hebName fallback — uses existing CSV record securityName', () => {
+  it('E1: no security info, CSV record exists — uses CSV securityName', () => {
     const existing: ProviderHoldingRecord[] = [{
       id: 'existing-1',
       providerId: PROVIDER_ID,
@@ -132,13 +162,19 @@ describe('PsagotApiImportHandler', () => {
       createdAt: '2025-01-15T00:00:00Z',
       updatedAt: '2025-01-15T00:00:00Z',
     }];
-    const records = mapOne(makeBalance({ hebName: null }), existing);
+    const records = mapOne(makeBalance(), new Map(), existing);
     expect(records[0].securityName).toBe('Leumi from CSV');
   });
 
-  it('E1b: null hebName fallback — uses securityId when no existing records', () => {
-    const records = mapOne(makeBalance({ hebName: null, equityNumber: '5130919' }));
+  it('E1b: no security info, no CSV record — falls back to Security #<id>', () => {
+    const records = mapOne(makeBalance({ equityNumber: '5130919' }), new Map(), []);
     expect(records[0].securityName).toBe('Security #5130919');
+  });
+
+  it('E1c: no security info, no divider — defaults to divisor 1 (no conversion)', () => {
+    const records = mapOne(makeBalance({ averagePrice: 8500, lastRate: 9741 }), new Map());
+    expect(records[0].costBasis).toBe(8500);
+    expect(records[0].currentPrice).toBe(9741);
   });
 
   it('E2: zero quantity position skipped', () => {
@@ -150,7 +186,7 @@ describe('PsagotApiImportHandler', () => {
       accountId: ACCOUNT_ID,
       importRunId: RUN_ID,
       existingRecords: [],
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
     expect(records).toHaveLength(1);
     expect(records[0].securityId).toBe('999');
@@ -171,7 +207,7 @@ describe('PsagotApiImportHandler', () => {
     expect(records).toHaveLength(0);
   });
 
-  it('E6: multiple positions mapped to array of records', () => {
+  it('E6: multiple positions mapped correctly', () => {
     const handler = new PsagotApiImportHandler();
     const records = handler.mapBalancesToHoldingRecords({
       balances: [
@@ -184,7 +220,7 @@ describe('PsagotApiImportHandler', () => {
       accountId: ACCOUNT_ID,
       importRunId: RUN_ID,
       existingRecords: [],
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
     expect(records).toHaveLength(3);
   });
@@ -198,20 +234,5 @@ describe('PsagotApiImportHandler', () => {
     const records = mapOne(makeBalance());
     const today = new Date().toISOString().slice(0, 10);
     expect(records[0].actionDate).toBe(today);
-  });
-
-  it('agorotConversion=false skips conversion even for ILS', () => {
-    const handler = new PsagotApiImportHandler();
-    const records = handler.mapBalancesToHoldingRecords({
-      balances: [makeBalance({ averagePrice: 8500, lastRate: 9741, currencyCode: 'ILS' })],
-      providerId: PROVIDER_ID,
-      providerIntegrationId: INTEGRATION_ID,
-      accountId: ACCOUNT_ID,
-      importRunId: RUN_ID,
-      existingRecords: [],
-      agorotConversion: false,
-    });
-    expect(records[0].costBasis).toBe(8500);
-    expect(records[0].currentPrice).toBe(9741);
   });
 });

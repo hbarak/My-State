@@ -1,4 +1,4 @@
-import type { PsagotBalance, ProviderHoldingRecord } from '../types';
+import type { PsagotBalance, PsagotSecurityInfo, ProviderHoldingRecord } from '../types';
 import { makeId, nowIso } from '../utils/idUtils';
 
 interface MapBalancesParams {
@@ -8,14 +8,17 @@ interface MapBalancesParams {
   readonly accountId: string;
   readonly importRunId: string;
   readonly existingRecords: readonly ProviderHoldingRecord[];
-  readonly agorotConversion: boolean;
+  /** Security metadata from /V2/json2/market/table/simple, keyed by equityNumber */
+  readonly securityInfoMap: ReadonlyMap<string, PsagotSecurityInfo>;
 }
 
 function resolveSecurityName(
   balance: PsagotBalance,
+  securityInfo: PsagotSecurityInfo | undefined,
   existingRecords: readonly ProviderHoldingRecord[],
 ): string {
-  if (balance.hebName) return balance.hebName;
+  if (securityInfo?.hebName) return securityInfo.hebName;
+  if (securityInfo?.engName) return securityInfo.engName;
 
   const csvRecord = existingRecords.find((r) => r.securityId === balance.equityNumber);
   if (csvRecord) return csvRecord.securityName;
@@ -34,8 +37,8 @@ export class PsagotApiImportHandler {
     return params.balances
       .filter((b) => this.isValidBalance(b))
       .map((balance) => {
-        const needsAgorotConversion = params.agorotConversion && balance.currencyCode === 'ILS';
-        const divisor = needsAgorotConversion ? 100 : 1;
+        const info = params.securityInfoMap.get(balance.equityNumber);
+        const divisor = info?.currencyDivider ?? 1;
 
         return {
           id: makeId('api_holding'),
@@ -44,7 +47,7 @@ export class PsagotApiImportHandler {
           accountId: params.accountId,
           importRunId: params.importRunId,
           securityId: balance.equityNumber,
-          securityName: resolveSecurityName(balance, params.existingRecords),
+          securityName: resolveSecurityName(balance, info, params.existingRecords),
           actionType: 'hold',
           quantity: balance.quantity,
           costBasis: balance.averagePrice / divisor,

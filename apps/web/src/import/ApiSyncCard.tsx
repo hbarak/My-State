@@ -108,12 +108,17 @@ export function ApiSyncCard({ disabled, onAccountsChanged, onClose }: ApiSyncCar
         accountBalances.push({ accountId: acct.key, balances });
       }
 
+      // Fetch security metadata for all equity numbers across all accounts (names, divider, ticker)
+      const allEquityNumbers = [...new Set(accountBalances.flatMap((ab) => ab.balances.map((b) => b.equityNumber)))];
+      const securityInfoList = await domain.psagotApiClient.fetchSecurityInfo(session, allEquityNumbers);
+      const securityInfoMap = new Map(securityInfoList.map((info) => [info.equityNumber, info]));
+
       // Sync all
       const summary = await domain.psagotApiSyncService.syncAllAccounts({
         accountBalances,
         providerId: SPRINT1_PROVIDER_ID,
         providerIntegrationId: PSAGOT_API_INTEGRATION_ID,
-        agorotConversion: true,
+        securityInfoMap,
       });
 
       // Refresh account list for parent

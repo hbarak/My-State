@@ -64,7 +64,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     const records = await repository.listHoldingRecordsByAccount(PROVIDER_ID, ACCOUNT_A);
@@ -81,7 +81,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     expect(result.importRun.status).toBe('success');
@@ -102,7 +102,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     expect(result.importRun.isUndoable).toBe(true);
@@ -140,7 +140,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     const allRecords = await repository.listHoldingRecordsByProvider(PROVIDER_ID);
@@ -157,7 +157,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     // Second sync: qty=95 (sold 5)
@@ -166,7 +166,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     const records = await repository.listHoldingRecordsByAccount(PROVIDER_ID, ACCOUNT_A);
@@ -184,7 +184,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     expect(result.importRun.status).toBe('success');
@@ -204,7 +204,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     // Second sync: only 1 position (222 was sold)
@@ -213,7 +213,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     expect(result.removedRecords).toBe(1);
@@ -235,7 +235,7 @@ describe('PsagotApiSyncService', () => {
       ],
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     expect(summary.accountsSynced).toBe(2);
@@ -257,7 +257,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     const position = await lotQueryService.getSecurityLots({
@@ -278,7 +278,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     const records = await repository.listHoldingRecordsByAccount(PROVIDER_ID, ACCOUNT_A);
@@ -298,7 +298,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     const runRecords = await repository.listHoldingRecordsByImportRun(result.importRun.id);
@@ -316,7 +316,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     // Second sync: update the same position (quantity changes)
@@ -325,7 +325,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     expect(result.updatedRecords).toBe(1);
@@ -362,7 +362,7 @@ describe('PsagotApiSyncService', () => {
       ],
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     // Account A failed, account B succeeded
@@ -385,7 +385,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     const rawRows = await repository.listRawRowsByImportRun(result.importRun.id);
@@ -416,7 +416,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     const rawRows = await repository.listRawRowsByImportRun(result.importRun.id);
@@ -469,7 +469,7 @@ describe('PsagotApiSyncService', () => {
         providerId: PROVIDER_ID,
         providerIntegrationId: INTEGRATION_ID,
         accountId: ACCOUNT_A,
-        agorotConversion: true,
+        securityInfoMap: new Map(),
       }),
     ).rejects.toThrow('simulated upsert failure');
 
@@ -497,7 +497,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     // Second sync: 111 updated, 222 removed, 333 new
@@ -509,7 +509,7 @@ describe('PsagotApiSyncService', () => {
       providerId: PROVIDER_ID,
       providerIntegrationId: INTEGRATION_ID,
       accountId: ACCOUNT_A,
-      agorotConversion: true,
+      securityInfoMap: new Map(),
     });
 
     expect(result.newRecords).toBe(1);      // 333

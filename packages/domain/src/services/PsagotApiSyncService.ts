@@ -1,10 +1,12 @@
 import type { PortfolioRepository } from '../repositories';
 import type {
   PsagotBalance,
+  PsagotSecurityInfo,
   PortfolioImportRun,
   ProviderHoldingRecord,
   PsagotApiError,
   RawImportRow,
+  TickerMapping,
 } from '../types';
 import { makeId, nowIso } from '../utils/idUtils';
 import type { AccountService } from './AccountService';
@@ -15,7 +17,7 @@ interface SyncAccountParams {
   readonly providerId: string;
   readonly providerIntegrationId: string;
   readonly accountId: string;
-  readonly agorotConversion: boolean;
+  readonly securityInfoMap: ReadonlyMap<string, PsagotSecurityInfo>;
 }
 
 interface SyncAllAccountsParams {
@@ -25,7 +27,7 @@ interface SyncAllAccountsParams {
   }>;
   readonly providerId: string;
   readonly providerIntegrationId: string;
-  readonly agorotConversion: boolean;
+  readonly securityInfoMap: ReadonlyMap<string, PsagotSecurityInfo>;
 }
 
 export interface ApiSyncResult {
@@ -73,7 +75,7 @@ export class PsagotApiSyncService {
       accountId: params.accountId,
       importRunId: runId,
       existingRecords: allExisting,
-      agorotConversion: params.agorotConversion,
+      securityInfoMap: params.securityInfoMap,
     });
 
     // Reconcile
@@ -176,6 +178,9 @@ export class PsagotApiSyncService {
     const results: ApiSyncResult[] = [];
     const errors: Array<{ accountId: string; error: PsagotApiError }> = [];
 
+    // Upsert ticker mappings from security info (EngSymbol + Exchange)
+    await upsertTickerMappingsFromSecurityInfo(params.securityInfoMap, this.repository);
+
     for (const { accountId, balances } of params.accountBalances) {
       try {
         const result = await this.syncAccount({
@@ -183,7 +188,7 @@ export class PsagotApiSyncService {
           providerId: params.providerId,
           providerIntegrationId: params.providerIntegrationId,
           accountId,
-          agorotConversion: params.agorotConversion,
+          securityInfoMap: params.securityInfoMap,
         });
         results.push(result);
       } catch (err) {
@@ -325,6 +330,28 @@ function hashString(input: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(16);
+}
+
+async function upsertTickerMappingsFromSecurityInfo(
+  securityInfoMap: ReadonlyMap<string, PsagotSecurityInfo>,
+  repository: PortfolioRepository,
+): Promise<void> {
+  const now = nowIso();
+  for (const info of securityInfoMap.values()) {
+    if (!info.engSymbol) continue;
+    const ticker = info.exchange ? `${info.engSymbol}.${info.exchange}` : info.engSymbol;
+    const existing = await repository.getTickerMapping(info.equityNumber);
+    if (existing?.resolvedBy === 'manual') continue; // never overwrite manual
+    const mapping: TickerMapping = {
+      securityId: info.equityNumber,
+      securityName: info.hebName ?? info.engName ?? info.equityNumber,
+      ticker,
+      exchange: info.exchange ?? undefined,
+      resolvedBy: 'static-table',
+      resolvedAt: now,
+    };
+    await repository.upsertTickerMapping(mapping);
+  }
 }
 
 function toPsagotApiError(err: unknown): PsagotApiError {

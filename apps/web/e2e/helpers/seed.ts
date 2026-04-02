@@ -22,7 +22,8 @@ export async function clearAllData(page: Page): Promise<void> {
  * because the bootstrap creates the provider AFTER ensureDefaultAccounts runs).
  */
 export async function goToImportReady(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Import' }).click();
+  // Navigate to Data tab (renamed from Import in S8)
+  await page.getByRole('button', { name: 'Data' }).click();
 
   // Wizard step 1: choose source — click CSV Upload card
   await page.getByText('CSV Upload').click();
@@ -30,31 +31,7 @@ export async function goToImportReady(page: Page): Promise<void> {
   // Wait for the account selector to be visible (wizard step 2)
   const accountSelect = page.locator('#account-select');
   await expect(accountSelect).toBeVisible({ timeout: 10_000 });
-
-  // Check if we need to create an account
-  const hasAccount = await page.evaluate(() => {
-    const select = document.querySelector('#account-select') as HTMLSelectElement | null;
-    if (!select) return false;
-    return Array.from(select.options).some(
-      (opt) => opt.textContent !== 'No accounts' && opt.value !== '',
-    );
-  });
-
-  if (!hasAccount) {
-    // Create a test account via the UI
-    await page.getByText('+ Add new account').click();
-    await page.locator('input[placeholder="Account name"]').fill('Test Account');
-    await page.getByRole('button', { name: 'Create' }).click();
-
-    // Wait for account to appear in the selector
-    await page.waitForFunction(() => {
-      const select = document.querySelector('#account-select') as HTMLSelectElement | null;
-      if (!select) return false;
-      return Array.from(select.options).some(
-        (opt) => opt.textContent !== 'No accounts' && opt.value !== '',
-      );
-    }, { timeout: 10_000 });
-  }
+  // Bootstrap creates a default account automatically — no manual creation needed
 }
 
 export async function seedHoldingRecords(

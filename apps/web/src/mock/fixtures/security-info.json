@@ -1,0 +1,91 @@
+{
+  "Table": {
+    "-AsOfDate": "2026-04-02T00:00:00.0000000+03:00",
+    "Security": [
+      {
+        "-Key": "5130919",
+        "HebName": "אי.בי.אי. מחקה ת\"א 90",
+        "EngName": "I.B.I. MEHAKA TA-90 IL",
+        "Exchange": "TASE",
+        "IssuedCountryCode": "ISR",
+        "CurrencyCode": "ILS",
+        "CurrencyDivider": 100,
+        "ItemType": "Fund",
+        "IsEtf": false,
+        "IsForeign": false
+      },
+      {
+        "-Key": "5112628",
+        "HebName": "אי.בי.אי. מחקה ת\"א 125",
+        "EngName": "I.B.I. MEHAKA TA-125 IL",
+        "Exchange": "TASE",
+        "IssuedCountryCode": "ISR",
+        "CurrencyCode": "ILS",
+        "CurrencyDivider": 100,
+        "ItemType": "Fund",
+        "IsEtf": false,
+        "IsForeign": false
+      },
+      {
+        "-Key": "1183441",
+        "HebName": "מגדל שוקי הון",
+        "EngName": "MIGDAL SHUKEI HON",
+        "Exchange": "TASE",
+        "IssuedCountryCode": "ISR",
+        "CurrencyCode": "ILS",
+        "CurrencyDivider": 100,
+        "ItemType": "Fund",
+        "IsEtf": false,
+        "IsForeign": false
+      },
+      {
+        "-Key": "1209444",
+        "HebName": "קרן כספית",
+        "EngName": "KEREN KASPIT",
+        "Exchange": "TASE",
+        "IssuedCountryCode": "ISR",
+        "CurrencyCode": "ILS",
+        "CurrencyDivider": 100,
+        "ItemType": "Fund",
+        "IsEtf": false,
+        "IsForeign": false
+      },
+      {
+        "-Key": "1084128",
+        "HebName": "תכלית אג\"ח ממשלתי",
+        "EngName": "TACHLIT AGACH MEMSHALTI",
+        "Exchange": "TASE",
+        "IssuedCountryCode": "ISR",
+        "CurrencyCode": "ILS",
+        "CurrencyDivider": 100,
+        "ItemType": "Fund",
+        "IsEtf": false,
+        "IsForeign": false
+      },
+      {
+        "-Key": "75416503",
+        "EngName": "SPDR S&P 500 ETF",
+        "EngSymbol": "SPY",
+        "Exchange": "ARCX",
+        "IssuedCountryCode": "USA",
+        "CurrencyCode": "USD",
+        "CurrencyDivider": 1,
+        "ItemType": "ETF",
+        "IsEtf": true,
+        "IsForeign": true
+      },
+      {
+        "-Key": "72179369",
+        "EngName": "INVESCO QQQ TRUST",
+        "EngSymbol": "QQQ",
+        "Exchange": "XNGS",
+        "IssuedCountryCode": "USA",
+        "CurrencyCode": "USD",
+        "CurrencyDivider": 1,
+        "ItemType": "ETF",
+        "IsEtf": true,
+        "IsForeign": true
+      }
+    ]
+  }
+}

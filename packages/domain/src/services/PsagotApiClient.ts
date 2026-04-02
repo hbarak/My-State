@@ -5,12 +5,15 @@ import type {
   PsagotBalance,
   PsagotCredentials,
   PsagotPendingSession,
+  PsagotSecurityInfo,
 } from '../types';
 
 const DEFAULT_BASE_URL = 'https://trade1.psagot.co.il';
 const LOGIN_PATH = '/V2/json2/login?catalog=unified';
 const ACCOUNTS_PATH = '/V2/json/accounts?catalog=unified';
 const BALANCES_PATH = '/V2/json2/account/view/balances';
+const SECURITY_INFO_PATH = '/V2/json2/market/table/simple';
+const SECURITY_INFO_FIELDS = 'HebName,EngName,EngSymbol,Exchange,CurrencyCode,CurrencyDivider,IsForeign,ItemType';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 interface PsagotApiErrorObject {
@@ -250,6 +253,35 @@ export class PsagotApiClient {
         hebName: securityNameMap.get(equityNumber) ?? null,
       };
     });
+  }
+
+  async fetchSecurityInfo(
+    session: PsagotAuthorizedSession,
+    equityNumbers: readonly string[],
+  ): Promise<PsagotSecurityInfo[]> {
+    if (equityNumbers.length === 0) return [];
+    this.assertValidSession(session);
+
+    const securities = equityNumbers.map(encodeURIComponent).join('%2C');
+    const url = `${this.baseUrl}${SECURITY_INFO_PATH}?securities=${securities}&fields=${SECURITY_INFO_FIELDS}&catalog=unified`;
+    const response = await this.authenticatedGet(url, session);
+
+    const body = response as Record<string, unknown>;
+    const table = body.Table as Record<string, unknown> | undefined;
+    const raw = (table?.Security ?? []) as Record<string, unknown>[];
+    if (!Array.isArray(raw)) return [];
+
+    return raw.map((sec) => ({
+      equityNumber: String(sec['-Key'] ?? ''),
+      hebName: (sec.HebName as string | null) ?? null,
+      engName: (sec.EngName as string | null) ?? null,
+      engSymbol: (sec.EngSymbol as string | null) ?? null,
+      exchange: (sec.Exchange as string | null) ?? null,
+      currencyCode: (sec.CurrencyCode as string | null) ?? null,
+      currencyDivider: typeof sec.CurrencyDivider === 'number' ? sec.CurrencyDivider : 1,
+      isForeign: Boolean(sec.IsForeign),
+      itemType: (sec.ItemType as string | null) ?? null,
+    }));
   }
 
   private assertValidSession(session: PsagotAuthorizedSession): void {

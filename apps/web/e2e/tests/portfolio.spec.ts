@@ -24,14 +24,14 @@ test('portfolio shows positions after import', async ({ page }) => {
   await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
   // Switch to Portfolio
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
 
   const table = page.locator('table');
   await expect(table).toBeVisible();
 
   // Verify position table headers
-  await expect(table.locator('th:has-text("Security")')).toBeVisible();
+  await expect(table.locator('th:has-text("Name")')).toBeVisible();
   await expect(table.locator('th:has-text("Qty")')).toBeVisible();
   await expect(table.locator('th:has-text("Value")')).toBeVisible();
 });
@@ -43,7 +43,7 @@ test('click position row — expands drill-down', async ({ page }) => {
   await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
   // Go to Portfolio
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
 
   // Click the first position row to expand drill-down
@@ -67,20 +67,20 @@ test('AC 5: net worth stays non-zero on tab switch (no flash regression)', async
   await expect(page.getByText('Import complete')).toBeVisible({ timeout: 10_000 });
 
   // Navigate to Portfolio tab and wait for content to load
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
 
   // Wait for position table to render (ensures portfolio is fully loaded)
   const positionTable = page.locator('table tbody');
   await expect(positionTable).toBeVisible({ timeout: 10_000 });
 
-  // Switch away to Import tab
-  await page.getByRole('button', { name: 'Import' }).click();
+  // Switch away to Data tab (renamed from Import in S8)
+  await page.getByRole('button', { name: 'Data' }).click();
   // Wait for Import tab to become active
   await page.waitForTimeout(500);
 
   // Return to Portfolio tab — regression test: ensure mount/unmount doesn't flash loading state
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
 
   // Key assertion: Positions heading should be immediately visible (no flash to loading/blank)
   // This tests the stale-while-revalidate behavior to prevent useEffect remount flashing
@@ -97,7 +97,7 @@ test.fixme('H3: summary card totals match portfolio data', async ({ page }) => {
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
   await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
 
   // Summary cards should show non-empty numeric values
   await expect(page.locator('[data-testid="summary-value"]')).toBeVisible({ timeout: 10_000 });
@@ -114,7 +114,7 @@ test.fixme('H5: lot-level drill-down shows correct detail fields', async ({ page
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
   await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
 
   const firstRow = page.locator('table tbody tr').first();
@@ -135,7 +135,7 @@ test.fixme('H6: multi-account section renders with per-account grouping', async 
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
   await expect(page.getByText("Import complete")).toBeVisible({ timeout: 10_000 });
 
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await expect(page.getByText('Positions')).toBeVisible({ timeout: 10_000 });
 
   // Account sections should render with data-testid

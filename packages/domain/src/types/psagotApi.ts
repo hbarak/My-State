@@ -38,6 +38,19 @@ export interface PsagotBalance {
   readonly hebName: string | null;
 }
 
+export interface PsagotSecurityInfo {
+  readonly equityNumber: string;
+  readonly hebName: string | null;
+  readonly engName: string | null;
+  readonly engSymbol: string | null;
+  readonly exchange: string | null;
+  readonly currencyCode: string | null;
+  /** 1 = whole units, 100 = agorot (divide by 100 to get ILS) */
+  readonly currencyDivider: number;
+  readonly isForeign: boolean;
+  readonly itemType: string | null;
+}
+
 export interface PsagotAccountSummary {
   readonly onlineCash: number;
   readonly morningCash: number;

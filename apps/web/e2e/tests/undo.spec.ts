@@ -26,6 +26,6 @@ test('undo removes last imported data', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Import another' })).toBeEnabled({ timeout: 10_000 });
 
   // Verify portfolio is now empty
-  await page.getByRole('button', { name: 'Portfolio' }).click();
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await expect(page.getByText(/No holdings imported yet/i)).toBeVisible({ timeout: 10_000 });
 });
