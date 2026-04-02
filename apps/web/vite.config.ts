@@ -8,6 +8,10 @@ const useMockApi = process.env.VITE_MOCK_API === 'true';
 
 export default defineConfig({
   plugins: [react(), pricePlugin(), useMockApi ? psagotMockPlugin() : psagotProxyPlugin()],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   optimizeDeps: {
     exclude: ['@react-native-async-storage/async-storage'],
   },
