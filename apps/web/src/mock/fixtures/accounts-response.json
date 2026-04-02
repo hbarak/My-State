@@ -1,11 +1,9 @@
 {
   "UserAccounts": {
     "UserAccount": [
-      {
-        "-key": "123-456789",
-        "-name": "ישראל ישראלי",
-        "-nickName": "חשבון ראשי"
-      }
+      { "-key": "150-190500", "-name": "Mock User", "-telCode": "0000", "-relation": "", "-nickName": "טווח קצר", "-type": "" },
+      { "-key": "150-224990", "-name": "Mock User", "-telCode": "0000", "-relation": "", "-nickName": "טווח ארוך (10)", "-type": "" },
+      { "-key": "150-235237", "-name": "Mock User", "-telCode": "0000", "-relation": "", "-nickName": "טווח בינוני (2-5)", "-type": "" }
     ]
   }
 }

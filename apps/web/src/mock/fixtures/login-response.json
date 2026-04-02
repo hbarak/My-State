@@ -1,6 +1,6 @@
 {
   "Exception": {
     "-ExceptionType": "MFATokenMissingException",
-    "Message": "OTP sent via SMS"
+    "Message": "MFA Token missing"
   }
 }

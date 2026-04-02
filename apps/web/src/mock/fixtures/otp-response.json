@@ -1,5 +1,12 @@
 {
   "Login": {
-    "SessionKey": "mock-session-key-00000000-0000-0000-0000-000000000001"
+    "SessionKey": "mock-session-key-00000000-0000-0000-0000-000000000001",
+    "-LastLogin": "2026-01-01T00:00:00.0000000+03:00",
+    "-PasswordExpiry": "2026-12-31T00:00:00.0000000+03:00",
+    "Capabilities": { "Capability": [] },
+    "CapabilityExchanges": { "CapabilityExchange": [] },
+    "Restrictions": null,
+    "Attributes": { "Attribute": [] },
+    "Commissions": null
   }
 }
