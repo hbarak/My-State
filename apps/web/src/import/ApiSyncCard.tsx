@@ -28,9 +28,10 @@ type SyncPhase =
 interface ApiSyncCardProps {
   readonly disabled: boolean;
   readonly onAccountsChanged: () => void;
+  readonly onClose?: () => void;
 }
 
-export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): JSX.Element {
+export function ApiSyncCard({ disabled, onAccountsChanged, onClose }: ApiSyncCardProps): JSX.Element {
   const [phase, setPhase] = useState<SyncPhase>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -252,12 +253,19 @@ export function ApiSyncCard({ disabled, onAccountsChanged }: ApiSyncCardProps): 
       )}
 
       {phase === 'complete' && syncSummary && (
-        <SyncResultsSummary
-          summary={syncSummary}
-          accounts={accounts}
-          newAccountCount={newAccountCount}
-          onSyncAgain={handleSyncAgain}
-        />
+        <>
+          <SyncResultsSummary
+            summary={syncSummary}
+            accounts={accounts}
+            newAccountCount={newAccountCount}
+            onSyncAgain={handleSyncAgain}
+          />
+          {onClose && (
+            <button type="button" className={styles.secondaryButton} onClick={onClose}>
+              Close
+            </button>
+          )}
+        </>
       )}
     </div>
   );

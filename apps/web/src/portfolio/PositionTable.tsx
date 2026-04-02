@@ -41,13 +41,11 @@ export function PositionTable({
       <table className={styles.table}>
         <thead>
           <tr>
-            <th>Security</th>
-            <th>Ticker</th>
-            <th className={styles.num}>Qty</th>
-            <th className={styles.num}>Avg Cost</th>
-            <th className={styles.num}>Price</th>
+            <th>Name</th>
+            <th className={styles.hideNarrow}>Qty</th>
+            <th className={`${styles.num} ${styles.hideNarrow}`}>Avg Cost</th>
+            <th className={`${styles.num} ${styles.hideNarrow}`}>Price</th>
             <th className={styles.num}>Value</th>
-            <th className={styles.num}>Gain/Loss</th>
             <th className={styles.num}>Gain %</th>
           </tr>
         </thead>
@@ -100,22 +98,23 @@ function PositionRow({
         onClick={onSelect}
         title={priceTooltip(position.priceSource)}
       >
-        <td>{position.securityName}</td>
         <td>
-          <TickerCell
-            securityId={position.securityId}
-            ticker={position.ticker}
-            tickerStatus={tickerStatus}
-            onResetTicker={onResetTicker}
-          />
+          <div className={styles.nameCell}>
+            <span className={styles.securityName}>
+              {position.securityName ?? position.securityId}
+            </span>
+            <TickerCell
+              securityId={position.securityId}
+              ticker={position.ticker}
+              tickerStatus={tickerStatus}
+              onResetTicker={onResetTicker}
+            />
+          </div>
         </td>
-        <td className={styles.num}>{formatNum(position.quantity)}</td>
-        <td className={styles.num}>{formatMoney(position.costBasis, position.currency)}</td>
-        <td className={styles.num}>{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
+        <td className={styles.hideNarrow}>{formatNum(position.quantity)}</td>
+        <td className={`${styles.num} ${styles.hideNarrow}`}>{formatMoney(position.costBasis, position.currency)}</td>
+        <td className={`${styles.num} ${styles.hideNarrow}`}>{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
         <td className={styles.num}>{position.currentValue !== undefined ? formatMoney(position.currentValue, position.currency) : '—'}</td>
-        <td className={`${styles.num} ${gainClass(position.unrealizedGain)}`}>
-          {position.unrealizedGain !== undefined ? `${gainArrow(position.unrealizedGain)} ${formatSignedMoney(position.unrealizedGain, position.currency)}` : '—'}
-        </td>
         <td className={styles.num}>
           <GainPill gain={position.unrealizedGain} gainPct={position.unrealizedGainPct} />
         </td>

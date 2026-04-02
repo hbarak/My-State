@@ -33,6 +33,24 @@
   color: var(--color-error-text);
 }
 
+.historySection {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-primary);
+  padding: var(--space-3) var(--space-4);
+}
+
+.historySummary {
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  user-select: none;
+  padding: var(--space-1) 0;
+}
+
 .devZone {
   margin-top: var(--space-6);
   padding-top: var(--space-4);

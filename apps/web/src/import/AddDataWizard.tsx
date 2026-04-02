@@ -11,7 +11,6 @@ interface AddDataWizardProps {
   readonly accounts: readonly Account[];
   readonly selectedAccountId: string | null;
   readonly onSelectAccount: (accountId: string) => void;
-  readonly onCreateAccount: (params: { id: string; name: string }) => Promise<void>;
   readonly onRenameAccount: (accountId: string, name: string) => Promise<void>;
   readonly onAccountsChanged: () => void;
 
@@ -29,6 +28,7 @@ interface AddDataWizardProps {
   readonly onContinueWithValidRows: () => void;
   readonly onCancelImport: () => void;
   readonly onUndoLastImport: () => void;
+  readonly onImportComplete?: () => void;
 }
 
 export type ImportStatus = 'idle' | 'processing' | 'awaiting_error_action' | 'completed' | 'failed' | 'cancelled';
@@ -62,7 +62,6 @@ export function AddDataWizard({
   accounts,
   selectedAccountId,
   onSelectAccount,
-  onCreateAccount,
   onRenameAccount,
   onAccountsChanged,
   onFileSelected,
@@ -75,6 +74,7 @@ export function AddDataWizard({
   onContinueWithValidRows,
   onCancelImport,
   onUndoLastImport,
+  onImportComplete,
   onReset,
 }: AddDataWizardProps): JSX.Element {
   const [source, setSource] = useState<Source | null>(null);
@@ -160,7 +160,6 @@ export function AddDataWizard({
               accounts={accounts}
               selectedAccountId={selectedAccountId}
               onSelect={onSelectAccount}
-              onCreate={onCreateAccount}
               onRename={onRenameAccount}
               disabled={isBusy}
             />
@@ -294,7 +293,12 @@ export function AddDataWizard({
                 </div>
               </div>
               <div className={styles.actions}>
-                <button type="button" className={styles.primaryButton} onClick={handleStartOver}>
+                {onImportComplete && (
+                  <button type="button" className={styles.primaryButton} onClick={onImportComplete}>
+                    View Portfolio
+                  </button>
+                )}
+                <button type="button" className={styles.secondaryButton} onClick={handleStartOver}>
                   Import another
                 </button>
                 <button type="button" className={styles.secondaryButton} onClick={onUndoLastImport} disabled={isBusy}>

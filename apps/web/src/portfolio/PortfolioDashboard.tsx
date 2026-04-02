@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnrichedHoldings } from '../hooks/useEnrichedHoldings';
 import { SPRINT1_PROVIDER_ID, domain } from '../domain/bootstrap';
 import { PortfolioSummary } from './PortfolioSummary';
-import { AllocationDonut } from './AllocationDonut';
 import { PositionTable } from './PositionTable';
-import { PriceFreshnessBar } from './PriceFreshnessBar';
+import { PortfolioActionBar } from './PortfolioActionBar';
 import type { TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
 import styles from './PortfolioDashboard.module.css';
 
@@ -69,14 +68,13 @@ export function PortfolioDashboard(): JSX.Element {
     );
   }
 
-  const currencies = Object.keys(data.costTotalsByCurrency);
-
   return (
     <div className={styles.dashboard}>
-      <PriceFreshnessBar
+      <PortfolioActionBar
         pricesFetchedAt={data.pricesFetchedAt}
         priceSummary={data.priceSummary}
         onRefresh={refetch}
+        onPortfolioChanged={refetch}
       />
 
       <PortfolioSummary enrichedState={data} />
@@ -91,15 +89,6 @@ export function PortfolioDashboard(): JSX.Element {
         onResetTicker={(securityId) => void handleResetTicker(securityId)}
         onPortfolioChanged={refetch}
       />
-
-      {currencies.map((currency) => (
-        <AllocationDonut
-          key={currency}
-          positions={data.positions}
-          currency={currency}
-          onSelectSecurity={handleSelectPosition}
-        />
-      ))}
     </div>
   );
 }

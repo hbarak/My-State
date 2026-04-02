@@ -119,3 +119,24 @@
   color: var(--color-loss);
   white-space: nowrap;
 }
+
+.nameCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.securityName {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Hide less-critical columns on narrow screens */
+.hideNarrow {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .hideNarrow {
+    display: table-cell;
+  }
+}

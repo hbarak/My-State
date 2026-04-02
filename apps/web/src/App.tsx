@@ -24,7 +24,7 @@ type PreviewRow = PreviewResult['validRows'][number];
 type CommitResult = Awaited<ReturnType<typeof domain.importService.commitImport>>;
 type HoldingsState = Awaited<ReturnType<typeof domain.financialStateService.getTotalHoldingsState>>;
 
-type ActiveView = 'portfolio' | 'import' | 'data';
+type ActiveView = 'portfolio' | 'data';
 type BootstrapStatus = 'loading' | 'ready' | 'error';
 type ImportStatus = 'idle' | 'processing' | 'awaiting_error_action' | 'completed' | 'failed' | 'cancelled';
 
@@ -78,17 +78,6 @@ export default function App(): JSX.Element {
   const invalidCount = preview?.invalidRows.length ?? 0;
   const duplicateCount = preview?.duplicateRows.length ?? 0;
   const reasonSummary = useMemo(() => summarizeReasons(preview?.invalidRows ?? []), [preview]);
-
-  const onCreateAccount = async (params: { id: string; name: string }): Promise<void> => {
-    const account = await domain.accountService.createAccount({
-      id: params.id,
-      providerId: SPRINT1_PROVIDER_ID,
-      name: params.name,
-    });
-    const updated = await domain.accountService.listByProvider(SPRINT1_PROVIDER_ID);
-    setAccounts(updated);
-    setSelectedAccountId(account.id);
-  };
 
   const onRenameAccount = async (accountId: string, name: string): Promise<void> => {
     await domain.accountService.updateAccount(SPRINT1_PROVIDER_ID, accountId, { name });
@@ -283,12 +272,6 @@ export default function App(): JSX.Element {
             Portfolio
           </button>
           <button
-            className={activeView === 'import' ? styles.tabActive : styles.tab}
-            onClick={() => setActiveView('import')}
-          >
-            Import
-          </button>
-          <button
             className={activeView === 'data' ? styles.tabActive : styles.tab}
             onClick={() => setActiveView('data')}
           >
@@ -304,14 +287,11 @@ export default function App(): JSX.Element {
         <p className={styles.error}>Setup failed: {bootstrapError}</p>
       )}
 
-      {activeView === 'data' && <DataTab />}
-
-      {activeView === 'import' && (
-        <AddDataWizard
+      {activeView === 'data' && (
+        <DataTab
           accounts={accounts}
           selectedAccountId={selectedAccountId}
           onSelectAccount={setSelectedAccountId}
-          onCreateAccount={onCreateAccount}
           onRenameAccount={onRenameAccount}
           onAccountsChanged={() => void onAccountsChanged()}
           onFileSelected={(file) => {
@@ -328,6 +308,7 @@ export default function App(): JSX.Element {
           onContinueWithValidRows={() => void onContinueWithValidRows()}
           onCancelImport={onCancelImport}
           onUndoLastImport={() => void onUndoLastImport()}
+          onNavigateToPortfolio={() => setActiveView('portfolio')}
         />
       )}
     </main>
