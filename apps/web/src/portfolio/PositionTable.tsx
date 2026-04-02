@@ -212,13 +212,6 @@ function priceTooltip(priceSource: PriceSource): string {
   }
 }
 
-function gainClass(gain: number | undefined): string {
-  if (gain === undefined) return '';
-  if (gain > 0) return styles.gainPositive;
-  if (gain < 0) return styles.gainNegative;
-  return '';
-}
-
 function gainArrow(gain: number | undefined): string {
   if (gain === undefined) return '';
   if (gain > 0) return '\u25B2';
@@ -243,11 +236,6 @@ function currencySymbol(currency: string): string {
 
 function formatMoney(value: number, currency: string): string {
   return currencySymbol(currency) + formatNum(value);
-}
-
-function formatSignedMoney(value: number, currency: string): string {
-  const prefix = value > 0 ? '+' : '';
-  return prefix + formatMoney(value, currency);
 }
 
 function formatPct(value: number): string {

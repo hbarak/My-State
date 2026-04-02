@@ -368,14 +368,6 @@ function summarizeReasons(rows: PreviewRow[]): ReasonSummary[] {
   return Array.from(counts.values()).sort((a, b) => b.count - a.count);
 }
 
-function previewRowSnippet(row: PreviewRow): string {
-  const fields = Object.entries(row.rowPayload)
-    .slice(0, 3)
-    .map(([key, value]) => `${key}=${value}`)
-    .join(', ');
-  return fields || 'duplicate row';
-}
-
 function persistResolutionDecision(params: {
   action: Extract<ResolutionAction, 'skip_batch' | 'cancel_import'>;
   runId: string;
@@ -413,23 +405,6 @@ function persistResolutionDecision(params: {
   } catch (error) {
     console.warn('Failed to save resolution audit record', error);
   }
-}
-
-function readableIntegrationName(integrationId: string | null): string {
-  if (integrationId === SPRINT1_HOLDINGS_INTEGRATION_ID) return 'Holdings CSV';
-  if (integrationId === SPRINT1_TRADES_INTEGRATION_ID) return 'Trades CSV';
-  return 'n/a';
-}
-
-function readableAccountName(accounts: readonly Account[], accountId: string | null): string {
-  if (!accountId) return 'n/a';
-  const account = accounts.find((a) => a.id === accountId);
-  return account?.name ?? accountId;
-}
-
-function formatNumber(value: number): string {
-  if (!Number.isFinite(value)) return 'n/a';
-  return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
 function isActiveToken(token: number, currentToken: number): boolean {

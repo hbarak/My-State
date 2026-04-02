@@ -5,6 +5,11 @@ import { aggregateHoldingLots } from './aggregateHoldingLots';
 export class TotalHoldingsStateBuilder {
   constructor(private readonly repository: PortfolioRepository) {}
 
+  // NOTE: When API integrations are present, `apiIntegrationIds` MUST be passed so that
+  // source-preference logic can exclude CSV duplicates. Omitting it silently falls back to
+  // "no preference", which would resurface the net-worth doubling bug. Resolution is enforced
+  // by FinancialStateApi, but callers that bypass it (e.g. direct test or future code) must
+  // pass apiIntegrationIds explicitly. Consider moving resolution inside build() at R5.
   async build(params?: { providerId?: string; apiIntegrationIds?: ReadonlySet<string> }): Promise<TotalHoldingsState> {
     const records = params?.providerId
       ? await this.repository.listHoldingRecordsByProvider(params.providerId)
@@ -101,6 +106,10 @@ function isRecordEligible(
   return validRuns.has(record.importRunId);
 }
 
+// NOTE (R8 limitation): positionKey is not account-scoped — it groups by (providerId, securityId)
+// across all accounts. An API record from Account A wins for a security even when Account B has a
+// CSV lot for the same security. This is intentional for R8 (single-account assumed). Must be
+// revisited when multi-account cross-broker support is added.
 function positionKey(record: ProviderHoldingRecord): string {
   return `${record.providerId}:${record.securityId}`;
 }
@@ -122,6 +131,10 @@ function aggregatePosition(key: string, lots: ProviderHoldingRecord[]): TotalHol
     }
   }
 
+  // NOTE (R8 limitation): securityName is taken from the first record in the group, which is
+  // non-deterministic for CSV lots (order not guaranteed). The API path is fine — API records
+  // always carry the authoritative hebName. For CSV-only positions, name may vary across imports.
+  // Acceptable for R8; address when stable sort or explicit name priority is needed.
   return {
     key,
     providerId: first.providerId,

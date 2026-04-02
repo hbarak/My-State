@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Plugin, ViteDevServer, Connect } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
@@ -18,7 +19,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
  */
 
 const PROXY_PREFIX = '/api/psagot';
-const FIXTURES_DIR = resolve(__dirname, '../mock/fixtures');
+// NOTE: Use import.meta.url instead of __dirname so this works correctly after ESM migration.
+// __dirname is not available in ESM modules; import.meta.url is the ESM-safe equivalent.
+const FIXTURES_DIR = resolve(fileURLToPath(new URL('.', import.meta.url)), '../mock/fixtures');
 
 function loadFixture(name: string): string {
   const path = resolve(FIXTURES_DIR, `${name}.json`);

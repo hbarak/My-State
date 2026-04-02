@@ -111,6 +111,13 @@ export class AccountService {
    * When API discovers a real account key that doesn't exist yet, check if a
    * 'default' placeholder account exists for the same provider. If so, merge
    * silently: rewrite all data referencing 'default' → real ID, delete 'default'.
+   *
+   * CONCURRENCY ASSUMPTION: Only one sync can run at a time. If two syncs ran
+   * concurrently (not possible today — no background jobs or parallel callers),
+   * both could find 'default' and attempt to merge into different real IDs, resulting
+   * in a corrupted account state. No guard enforces this; rely on the single-threaded
+   * JS event loop and the single-caller sync flow. Add an explicit lock if concurrent
+   * sync is ever introduced.
    */
   private async tryMergeDefaultAccount(
     providerId: string,
