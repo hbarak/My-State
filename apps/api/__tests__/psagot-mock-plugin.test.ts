@@ -13,7 +13,7 @@ type MiddlewareFn = (req: IncomingMessage, res: ServerResponse, next: NextFn) =>
 
 async function importMockHandler(): Promise<MiddlewareFn> {
   // Dynamically import the plugin and extract its request handler
-  const { psagotMockPlugin } = await import('../psagot-mock-plugin');
+  const { psagotMockPlugin } = await import('../src/plugins/psagot-mock-plugin');
   const plugin = psagotMockPlugin();
 
   let capturedHandler: MiddlewareFn | null = null;

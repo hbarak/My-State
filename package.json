@@ -8,8 +8,12 @@
   ],
   "scripts": {
     "dev:web": "npm run dev -w @my-stocks/web",
+    "dev:mock": "npm run dev:mock -w @my-stocks/web",
     "build:web": "npm run build -w @my-stocks/web",
+    "typecheck": "npm run typecheck -w @my-stocks/web && npm run typecheck -w @my-stocks/api",
     "test": "npm run test -w @my-stocks/domain",
+    "test:api": "npm run test -w @my-stocks/api",
+    "test:adapters": "npm run test:adapters -w @my-stocks/web",
     "test:e2e": "npm run test:e2e -w @my-stocks/web"
   },
   "devDependencies": {

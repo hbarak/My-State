@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractNav, extractLastRate } from '../price-plugin';
+import { extractNav, extractLastRate } from '../src/plugins/price-plugin';
 
 describe('extractNav', () => {
   it('returns UnitValuePrice when positive number', () => {

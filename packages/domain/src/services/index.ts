@@ -11,6 +11,5 @@ export * from './aggregateHoldingLots';
 export * from './MarketPriceService';
 export * from './TickerResolverService';
 export * from './PortfolioPriceEnricher';
-export * from './PsagotApiClient';
 export * from './PsagotApiImportHandler';
 export * from './PsagotApiSyncService';

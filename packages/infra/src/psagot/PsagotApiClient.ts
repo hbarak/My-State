@@ -1,4 +1,4 @@
-import type { HttpPort } from '../ports/HttpPort';
+import type { HttpPort } from '@my-stocks/domain';
 import type {
   PsagotAccount,
   PsagotAuthorizedSession,
@@ -6,7 +6,7 @@ import type {
   PsagotCredentials,
   PsagotPendingSession,
   PsagotSecurityInfo,
-} from '../types';
+} from '@my-stocks/domain';
 
 const DEFAULT_BASE_URL = 'https://trade1.psagot.co.il';
 const LOGIN_PATH = '/V2/json2/login?catalog=unified';

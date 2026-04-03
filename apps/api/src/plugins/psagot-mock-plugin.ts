@@ -11,7 +11,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
  *
  * Activated when VITE_MOCK_API=true (use `npm run dev:mock`).
  *
- * Fixture files live in src/mock/fixtures/:
+ * Fixture files live in src/fixtures/:
  *   login-response.json         — POST /V2/json2/login (pending OTP)
  *   otp-response.json           — POST /V2/json2/login (any 6-digit OTP authorized)
  *   accounts-response.json      — GET /V2/json/accounts
@@ -21,7 +21,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 const PROXY_PREFIX = '/api/psagot';
 // NOTE: Use import.meta.url instead of __dirname so this works correctly after ESM migration.
 // __dirname is not available in ESM modules; import.meta.url is the ESM-safe equivalent.
-const FIXTURES_DIR = resolve(fileURLToPath(new URL('.', import.meta.url)), '../mock/fixtures');
+const FIXTURES_DIR = resolve(fileURLToPath(new URL('.', import.meta.url)), '../fixtures');
 
 function loadFixture(name: string): string {
   const path = resolve(FIXTURES_DIR, `${name}.json`);

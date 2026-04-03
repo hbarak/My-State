@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { HttpPort, HttpRequest, HttpResponse } from '../src/ports/HttpPort';
-import { PsagotApiClient } from '../src/services/PsagotApiClient';
+import { PsagotApiClient } from '../../infra/src/psagot/PsagotApiClient';
 
 function mockHttp(handler: (req: HttpRequest) => HttpResponse): HttpPort {
   return { request: vi.fn(async (req: HttpRequest) => handler(req)) };

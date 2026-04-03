@@ -1,23 +1,26 @@
-import { LocalPortfolioRepository } from '../../../../packages/domain/src/repositories/portfolioRepository';
-import { PortfolioImportService } from '../../../../packages/domain/src/services/PortfolioImportService';
-import { FinancialStateService } from '../../../../packages/domain/src/services/FinancialStateService';
-import { SecurityLotQueryService } from '../../../../packages/domain/src/services/SecurityLotQueryService';
-import { MarketPriceService } from '../../../../packages/domain/src/services/MarketPriceService';
-import { TickerResolverService } from '../../../../packages/domain/src/services/TickerResolverService';
-import { PortfolioPriceEnricher } from '../../../../packages/domain/src/services/PortfolioPriceEnricher';
-import { AccountService, ensureDefaultAccounts } from '../../../../packages/domain/src/services/AccountService';
-import { ImportRunQueryService } from '../../../../packages/domain/src/services/ImportRunQueryService';
-import { PsagotApiClient } from '../../../../packages/domain/src/services/PsagotApiClient';
-import { PsagotApiImportHandler } from '../../../../packages/domain/src/services/PsagotApiImportHandler';
-import { PsagotApiSyncService } from '../../../../packages/domain/src/services/PsagotApiSyncService';
-import { BrowserLocalStorageJsonStore } from '../../../../packages/domain/src/stores/jsonStores';
-import { TelemetryService, ConsoleTelemetrySink } from '../../../../packages/domain/src/telemetry';
-import type { HttpPort } from '../../../../packages/domain/src/ports/HttpPort';
+import {
+  LocalPortfolioRepository,
+  PortfolioImportService,
+  FinancialStateService,
+  SecurityLotQueryService,
+  MarketPriceService,
+  TickerResolverService,
+  PortfolioPriceEnricher,
+  AccountService,
+  ensureDefaultAccounts,
+  ImportRunQueryService,
+  PsagotApiImportHandler,
+  PsagotApiSyncService,
+  TelemetryService,
+  ConsoleTelemetrySink,
+  IsraeliSecurityLookupImpl,
+} from '@my-stocks/domain';
+import type { HttpPort } from '@my-stocks/domain';
+import { BrowserLocalStorageJsonStore, PsagotApiClient } from '@my-stocks/infra';
 import { EodhdPriceFetcher } from '../adapters/EodhdPriceFetcher';
 import { EodhdTickerSearcher } from '../adapters/EodhdTickerSearcher';
 import { MayaPriceFetcher } from '../adapters/MayaPriceFetcher';
 import { FanOutPriceFetcher } from '../adapters/FanOutPriceFetcher';
-import { IsraeliSecurityLookupImpl } from '../../../../packages/domain/src/data/israeliSecurities';
 
 const store = new BrowserLocalStorageJsonStore('my-stocks:web:');
 const repository = new LocalPortfolioRepository(store);
