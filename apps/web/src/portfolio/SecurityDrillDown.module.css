@@ -71,6 +71,31 @@
   background: var(--color-bg-secondary);
 }
 
+.tickerFailed {
+  font-size: var(--font-size-sm);
+  color: var(--color-warning, #b45309);
+  font-weight: var(--font-weight-normal);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tickerResetButton {
+  appearance: none;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--color-warning, #b45309);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  padding: 1px var(--space-2);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.tickerResetButton:hover {
+  opacity: 0.75;
+}
+
 /* Lot table */
 .lotTable {
   width: 100%;

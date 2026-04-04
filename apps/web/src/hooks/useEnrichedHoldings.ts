@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EnrichedHoldingsState } from '../../../../packages/domain/src/types/marketPrice';
+import { QuotaExceededError } from '../adapters/EodhdPriceFetcher';
 import { domain } from '../domain/bootstrap';
 
 export type EnrichedHoldingsStatus = 'loading' | 'ready' | 'error';
@@ -8,6 +9,7 @@ export interface UseEnrichedHoldingsResult {
   readonly state: EnrichedHoldingsStatus;
   readonly data: EnrichedHoldingsState | null;
   readonly error: string | null;
+  readonly priceQuotaExceeded: boolean;
   readonly refetch: () => void;
 }
 
@@ -24,12 +26,14 @@ export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResu
     () => cachedData.get(providerId) ?? null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [priceQuotaExceeded, setPriceQuotaExceeded] = useState(false);
   const requestIdRef = useRef(0);
 
   const doFetch = useCallback(
     (reqId: number) => {
       setStatus('loading');
       setError(null);
+      setPriceQuotaExceeded(false);
 
       domain.financialStateService
         .getEnrichedHoldings({ providerId })
@@ -41,10 +45,17 @@ export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResu
         })
         .catch((err: unknown) => {
           if (reqId !== requestIdRef.current) return;
+          if (err instanceof QuotaExceededError) {
+            // Quota exceeded: keep existing data visible, show inline warning only
+            setPriceQuotaExceeded(true);
+            setStatus(data !== null ? 'ready' : 'error');
+            return;
+          }
           setError(err instanceof Error ? err.message : 'Failed to load portfolio');
           setStatus('error');
         });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [providerId],
   );
 
@@ -58,5 +69,5 @@ export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResu
     doFetch(reqId);
   }, [doFetch]);
 
-  return { state: status, data, error, refetch };
+  return { state: status, data, error, priceQuotaExceeded, refetch };
 }

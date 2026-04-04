@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { EnrichedHoldingsPosition, PriceSource, TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
 import { SecurityDrillDown } from './SecurityDrillDown';
+import { formatQty, convertUsdToIls } from './formatters';
 import styles from './PositionTable.module.css';
 import tickerStyles from './TickerStatus.module.css';
 
@@ -13,6 +14,7 @@ interface PositionTableProps {
   readonly tickerMappings?: ReadonlyMap<string, TickerMappingStatus>;
   readonly onResetTicker?: (securityId: string) => void;
   readonly onPortfolioChanged?: () => void;
+  readonly exchangeRate?: number | null;
 }
 
 export function PositionTable({
@@ -24,6 +26,7 @@ export function PositionTable({
   tickerMappings,
   onResetTicker,
   onPortfolioChanged,
+  exchangeRate,
 }: PositionTableProps): JSX.Element {
   const sorted = useMemo(
     () =>
@@ -63,6 +66,7 @@ export function PositionTable({
                 tickerStatus={tickerMappings?.get(pos.securityId)}
                 onResetTicker={onResetTicker}
                 onPortfolioChanged={onPortfolioChanged}
+                exchangeRate={exchangeRate ?? null}
               />
             );
           })}
@@ -81,6 +85,7 @@ function PositionRow({
   tickerStatus,
   onResetTicker,
   onPortfolioChanged,
+  exchangeRate,
 }: {
   readonly position: EnrichedHoldingsPosition;
   readonly providerId: string;
@@ -90,7 +95,13 @@ function PositionRow({
   readonly tickerStatus?: TickerMappingStatus;
   readonly onResetTicker?: (securityId: string) => void;
   readonly onPortfolioChanged?: () => void;
+  readonly exchangeRate: number | null;
 }): JSX.Element {
+  const isUsd = position.currency === 'USD';
+  const ilsValue = isUsd && position.currentValue !== undefined
+    ? convertUsdToIls(position.currentValue, exchangeRate)
+    : null;
+
   return (
     <>
       <tr
@@ -107,14 +118,20 @@ function PositionRow({
               securityId={position.securityId}
               ticker={position.ticker}
               tickerStatus={tickerStatus}
-              onResetTicker={onResetTicker}
             />
           </div>
         </td>
-        <td className={styles.hideNarrow}>{formatNum(position.quantity)}</td>
+        <td className={styles.hideNarrow}>{formatQty(position.quantity)}</td>
         <td className={`${styles.num} ${styles.hideNarrow}`}>{formatMoney(position.costBasis, position.currency)}</td>
         <td className={`${styles.num} ${styles.hideNarrow}`}>{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
-        <td className={styles.num}>{position.currentValue !== undefined ? formatMoney(position.currentValue, position.currency) : '—'}</td>
+        <td className={styles.num}>
+          <ValueCell
+            position={position}
+            isUsd={isUsd}
+            ilsValue={ilsValue}
+            rateAvailable={exchangeRate !== null}
+          />
+        </td>
         <td className={styles.num}>
           <GainPill gain={position.unrealizedGain} gainPct={position.unrealizedGainPct} />
         </td>
@@ -125,54 +142,71 @@ function PositionRow({
           providerId={providerId}
           onClose={onClose}
           onPortfolioChanged={onPortfolioChanged}
+          onResetTicker={onResetTicker}
+          tickerStatus={tickerStatus}
         />
       )}
     </>
   );
 }
 
+/** Shows ticker as muted subtext. Only displays a warning icon when resolution has failed. */
 function TickerCell({
-  securityId,
   ticker,
   tickerStatus,
-  onResetTicker,
 }: {
   readonly securityId: string;
   readonly ticker?: string;
   readonly tickerStatus?: TickerMappingStatus;
-  readonly onResetTicker?: (securityId: string) => void;
 }): JSX.Element {
-  if (!tickerStatus) {
-    return <span>{ticker ?? '—'}</span>;
+  const failed = tickerStatus?.status === 'failed';
+
+  if (failed) {
+    return (
+      <span className={tickerStyles.tickerSubtext} aria-label="Ticker resolution failed">
+        <span className={tickerStyles.tickerWarningIcon} aria-hidden="true">⚠</span>
+        {' —'}
+      </span>
+    );
   }
 
-  const { status } = tickerStatus;
-  const badgeClass =
-    status === 'manual' ? tickerStyles.badgeManual
-    : status === 'failed' ? tickerStyles.badgeFailed
-    : tickerStyles.badgeAuto;
-
-  const badgeLabel = status === 'manual' ? 'M' : status === 'failed' ? '!' : 'A';
-  const badgeTitle =
-    status === 'manual' ? 'Manually set ticker'
-    : status === 'failed' ? 'Ticker not resolved — click to retry'
-    : 'Auto-resolved ticker';
-
   return (
-    <span className={tickerStyles.tickerCell}>
-      <span>{ticker ?? '—'}</span>
-      <button
-        type="button"
-        className={`${tickerStyles.badge} ${badgeClass}`}
-        title={badgeTitle}
-        aria-label={`${badgeTitle}. Click to reset mapping for ${securityId}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onResetTicker?.(securityId);
-        }}
-      >
-        {badgeLabel}
-      </button>
+    <span className={tickerStyles.tickerSubtext}>
+      {ticker ?? '—'}
+    </span>
+  );
+}
+
+function ValueCell({
+  position,
+  isUsd,
+  ilsValue,
+  rateAvailable,
+}: {
+  readonly position: EnrichedHoldingsPosition;
+  readonly isUsd: boolean;
+  readonly ilsValue: number | null;
+  readonly rateAvailable: boolean;
+}): JSX.Element {
+  if (position.currentValue === undefined) return <span>—</span>;
+
+  // Non-USD: display as-is
+  if (!isUsd) return <span>{formatMoney(position.currentValue, position.currency)}</span>;
+
+  // USD with rate available: show ILS primary, USD muted below
+  if (ilsValue !== null) {
+    return (
+      <div className={styles.valueCell}>
+        <span>{formatMoney(ilsValue, 'ILS')}</span>
+        <span className={styles.valueCellSub}>{formatMoney(position.currentValue, 'USD')}</span>
+      </div>
+    );
+  }
+
+  // USD without rate: show USD with ~ prefix
+  return (
+    <span aria-label="Approximate value — ILS conversion unavailable">
+      ~{formatMoney(position.currentValue, 'USD')}
     </span>
   );
 }
@@ -219,10 +253,6 @@ function gainArrow(gain: number | undefined): string {
   return '';
 }
 
-function formatNum(value: number): string {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 const CURRENCY_SYMBOLS: Record<string, string> = {
   ILS: '\u20AA',
   USD: '$',
@@ -235,7 +265,8 @@ function currencySymbol(currency: string): string {
 }
 
 function formatMoney(value: number, currency: string): string {
-  return currencySymbol(currency) + formatNum(value);
+  const formatted = value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return currencySymbol(currency) + formatted;
 }
 
 function formatPct(value: number): string {

@@ -7,10 +7,29 @@ import { PortfolioActionBar } from './PortfolioActionBar';
 import type { TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
 import styles from './PortfolioDashboard.module.css';
 
+async function fetchExchangeRate(): Promise<number | null> {
+  try {
+    const response = await fetch('/api/boi-rate');
+    if (!response.ok) return null;
+    const body = await response.json() as unknown;
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      typeof (body as Record<string, unknown>).rate === 'number'
+    ) {
+      return (body as Record<string, unknown>).rate as number;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function PortfolioDashboard(): JSX.Element {
-  const { state, data, error, refetch } = useEnrichedHoldings(SPRINT1_PROVIDER_ID);
+  const { state, data, error, priceQuotaExceeded, refetch } = useEnrichedHoldings(SPRINT1_PROVIDER_ID);
   const [expandedSecurityId, setExpandedSecurityId] = useState<string | null>(null);
   const [tickerMappings, setTickerMappings] = useState<ReadonlyMap<string, TickerMappingStatus>>(new Map());
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const fetchVersion = useRef(0);
 
   const loadTickerMappings = useCallback(async (): Promise<void> => {
@@ -27,6 +46,11 @@ export function PortfolioDashboard(): JSX.Element {
   useEffect(() => {
     void loadTickerMappings();
   }, [loadTickerMappings]);
+
+  // Fetch שער יציג once on mount — session-scoped, not persisted
+  useEffect(() => {
+    fetchExchangeRate().then(setExchangeRate).catch(() => setExchangeRate(null));
+  }, []);
 
   const handleResetTicker = useCallback(async (securityId: string): Promise<void> => {
     await domain.tickerResolver.resetMapping(securityId);
@@ -75,9 +99,10 @@ export function PortfolioDashboard(): JSX.Element {
         priceSummary={data.priceSummary}
         onRefresh={refetch}
         onPortfolioChanged={refetch}
+        priceQuotaExceeded={priceQuotaExceeded}
       />
 
-      <PortfolioSummary enrichedState={data} />
+      <PortfolioSummary enrichedState={data} exchangeRate={exchangeRate} />
 
       <PositionTable
         positions={data.positions}
@@ -88,6 +113,7 @@ export function PortfolioDashboard(): JSX.Element {
         tickerMappings={tickerMappings}
         onResetTicker={(securityId) => void handleResetTicker(securityId)}
         onPortfolioChanged={refetch}
+        exchangeRate={exchangeRate}
       />
     </div>
   );

@@ -46,3 +46,9 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
+
+.rateUnavailableIcon {
+  cursor: help;
+  color: var(--color-text-muted);
+  font-style: normal;
+}

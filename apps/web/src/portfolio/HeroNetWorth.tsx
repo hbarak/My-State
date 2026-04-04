@@ -1,14 +1,14 @@
 import type { EnrichedHoldingsState } from '../../../../packages/domain/src/types/marketPrice';
+import { convertUsdToIls } from './formatters';
 import styles from './HeroNetWorth.module.css';
 
 interface HeroNetWorthProps {
   readonly enrichedState: EnrichedHoldingsState;
+  readonly exchangeRate: number | null;
 }
 
-export function HeroNetWorth({ enrichedState }: HeroNetWorthProps): JSX.Element {
-  const primaryCurrency = pickPrimaryCurrency(enrichedState);
-
-  if (!primaryCurrency) {
+export function HeroNetWorth({ enrichedState, exchangeRate }: HeroNetWorthProps): JSX.Element {
+  if (Object.keys(enrichedState.costTotalsByCurrency).length === 0) {
     return (
       <div className={styles.hero}>
         <p className={styles.empty}>No positions to display.</p>
@@ -16,22 +16,51 @@ export function HeroNetWorth({ enrichedState }: HeroNetWorthProps): JSX.Element 
     );
   }
 
-  const value = enrichedState.valuationTotalsByCurrency[primaryCurrency];
-  const cost = enrichedState.costTotalsByCurrency[primaryCurrency] ?? 0;
-  const gain = enrichedState.unrealizedGainTotalsByCurrency[primaryCurrency];
-  const gainPct = gain !== undefined && cost > 0 ? (gain / cost) * 100 : undefined;
-  const hasMarketValue = value !== undefined;
+  const ilsValue = enrichedState.valuationTotalsByCurrency['ILS'];
+  const usdValue = enrichedState.valuationTotalsByCurrency['USD'];
+  const ilsCost = enrichedState.costTotalsByCurrency['ILS'] ?? 0;
+  const usdCost = enrichedState.costTotalsByCurrency['USD'] ?? 0;
+
+  const usdInIls = usdValue !== undefined ? convertUsdToIls(usdValue, exchangeRate) : null;
+  const usdCostInIls = convertUsdToIls(usdCost, exchangeRate);
+
+  const totalIlsValue = ilsValue !== undefined || usdInIls !== null
+    ? (ilsValue ?? 0) + (usdInIls ?? 0)
+    : undefined;
+  const totalIlsCost = ilsCost + (usdCostInIls ?? usdCost);
+
+  const hasMarketValue = totalIlsValue !== undefined;
+  const ilsGain = hasMarketValue ? totalIlsValue - totalIlsCost : undefined;
+  const gainPct = ilsGain !== undefined && totalIlsCost > 0 ? (ilsGain / totalIlsCost) * 100 : undefined;
+
+  const rateUnavailable = usdValue !== undefined && exchangeRate === null;
+  const label = hasMarketValue
+    ? rateUnavailable ? 'Net Worth (est.)' : 'Net Worth (ILS)'
+    : rateUnavailable ? 'Cost Basis (est.)' : 'Cost Basis (ILS)';
+
+  const displayValue = hasMarketValue ? totalIlsValue : totalIlsCost;
 
   return (
     <div className={styles.hero}>
-      <p className={styles.label}>{hasMarketValue ? 'Net Worth' : 'Cost Basis'}</p>
-      <p className={styles.amount} data-testid="hero-net-worth">
-        {hasMarketValue ? formatCurrency(value, primaryCurrency) : formatCurrency(cost, primaryCurrency)}
+      <p className={styles.label}>
+        {label}
+        {rateUnavailable && (
+          <span
+            className={styles.rateUnavailableIcon}
+            title="ILS conversion unavailable. Prices shown in original currency."
+            aria-label="ILS conversion unavailable. Prices shown in original currency."
+          >
+            {' ℹ'}
+          </span>
+        )}
       </p>
-      {gain !== undefined && gainPct !== undefined && (
-        <p className={`${styles.delta} ${gain >= 0 ? styles.positive : styles.negative}`}>
-          <span aria-hidden="true">{gain >= 0 ? '▲' : '▼'}</span>{' '}
-          {formatSignedCurrency(gain, primaryCurrency)} ({formatSignedPct(gainPct)})
+      <p className={styles.amount} data-testid="hero-net-worth">
+        {formatCurrency(displayValue, 'ILS')}
+      </p>
+      {ilsGain !== undefined && gainPct !== undefined && (
+        <p className={`${styles.delta} ${ilsGain >= 0 ? styles.positive : styles.negative}`}>
+          <span aria-hidden="true">{ilsGain >= 0 ? '▲' : '▼'}</span>{' '}
+          {formatSignedCurrency(ilsGain, 'ILS')} ({formatSignedPct(gainPct)})
         </p>
       )}
       {!hasMarketValue && (

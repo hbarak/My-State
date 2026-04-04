@@ -8,6 +8,7 @@ interface PortfolioActionBarProps {
   readonly priceSummary: PriceSummary;
   readonly onRefresh: () => void;
   readonly onPortfolioChanged: () => void;
+  readonly priceQuotaExceeded?: boolean;
 }
 
 export function PortfolioActionBar({
@@ -15,6 +16,7 @@ export function PortfolioActionBar({
   priceSummary,
   onRefresh,
   onPortfolioChanged,
+  priceQuotaExceeded = false,
 }: PortfolioActionBarProps): JSX.Element {
   const [syncOpen, setSyncOpen] = useState(false);
 
@@ -66,6 +68,12 @@ export function PortfolioActionBar({
           </button>
         </div>
       </div>
+
+      {priceQuotaExceeded && (
+        <p className={styles.quotaWarning} role="status">
+          Daily price limit reached. Prices will refresh tomorrow.
+        </p>
+      )}
 
       {syncOpen && (
         <div className={styles.syncPanel}>

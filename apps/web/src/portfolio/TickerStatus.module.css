@@ -4,6 +4,19 @@
   gap: var(--space-1);
 }
 
+.tickerSubtext {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tickerWarningIcon {
+  color: var(--color-warning, #b45309);
+  font-size: var(--font-size-xs);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

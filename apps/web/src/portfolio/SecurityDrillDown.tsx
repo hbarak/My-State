@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { EnrichedHoldingsPosition } from '../../../../packages/domain/src/types/marketPrice';
+import type { EnrichedHoldingsPosition, TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
 import type { SecurityPosition, SecurityLot } from '../../../../packages/domain/src/services/SecurityLotQueryService';
 import { domain } from '../domain/bootstrap';
+import { formatQty } from './formatters';
 import { AccountSection } from './AccountSection';
 import { PositionProvenance } from './PositionProvenance';
 import styles from './SecurityDrillDown.module.css';
@@ -11,11 +12,13 @@ interface SecurityDrillDownProps {
   readonly providerId: string;
   readonly onClose: () => void;
   readonly onPortfolioChanged?: () => void;
+  readonly onResetTicker?: (securityId: string) => void;
+  readonly tickerStatus?: TickerMappingStatus;
 }
 
 type LotFetchState = 'loading' | 'ready' | 'error';
 
-export function SecurityDrillDown({ position, providerId, onClose, onPortfolioChanged }: SecurityDrillDownProps): JSX.Element {
+export function SecurityDrillDown({ position, providerId, onClose, onPortfolioChanged, onResetTicker, tickerStatus }: SecurityDrillDownProps): JSX.Element {
   const [fetchState, setFetchState] = useState<LotFetchState>('loading');
   const [securityPosition, setSecurityPosition] = useState<SecurityPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,12 +58,26 @@ export function SecurityDrillDown({ position, providerId, onClose, onPortfolioCh
             <div>
               <strong>{position.securityName}</strong>
               {position.ticker && <span className={styles.muted}> ({position.ticker})</span>}
+              {tickerStatus?.status === 'failed' && (
+                <span className={styles.tickerFailed} aria-label="Ticker resolution failed — click Reset to retry">
+                  {' '}⚠ Ticker unresolved
+                  {onResetTicker && (
+                    <button
+                      type="button"
+                      className={styles.tickerResetButton}
+                      onClick={() => onResetTicker(position.securityId)}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </span>
+              )}
             </div>
             <button className={styles.closeButton} onClick={onClose}>Close</button>
           </div>
 
           <div className={styles.summary}>
-            <span>Qty: {formatNum(position.quantity)}</span>
+            <span>Qty: {formatQty(position.quantity)}</span>
             <span>Avg Cost: {formatMoney(position.costBasis, position.currency)}</span>
             {position.currentPrice !== undefined && (
               <span>Price: {formatMoney(position.currentPrice, position.currency)}</span>
@@ -154,7 +171,7 @@ function LotTable({
               <td>{lot.fifoOrder}</td>
               <td>{lot.actionDate}</td>
               <td>{lot.actionType}</td>
-              <td className={styles.num}>{formatNum(lot.quantity)}</td>
+              <td className={styles.num}>{formatQty(lot.quantity)}</td>
               <td className={styles.num}>{formatMoney(lot.costBasis, currency)}</td>
               <td className={styles.num}>{lotValue !== undefined ? formatMoney(lotValue, currency) : '—'}</td>
               <td className={`${styles.num} ${gainClass(lotGain)}`}>
@@ -182,10 +199,6 @@ function gainArrow(gain: number | undefined): string {
   return '';
 }
 
-function formatNum(value: number): string {
-  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 const CURRENCY_SYMBOLS: Record<string, string> = {
   ILS: '\u20AA',
   USD: '$',
@@ -198,7 +211,8 @@ function currencySymbol(currency: string): string {
 }
 
 function formatMoney(value: number, currency: string): string {
-  return currencySymbol(currency) + formatNum(value);
+  const formatted = value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return currencySymbol(currency) + formatted;
 }
 
 function formatSignedMoney(value: number, currency: string): string {

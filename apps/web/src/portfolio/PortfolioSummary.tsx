@@ -1,27 +1,35 @@
 import type { EnrichedHoldingsState } from '../../../../packages/domain/src/types/marketPrice';
+import { convertUsdToIls } from './formatters';
 import { HeroNetWorth } from './HeroNetWorth';
 import styles from './PortfolioSummary.module.css';
 
 interface PortfolioSummaryProps {
   readonly enrichedState: EnrichedHoldingsState;
+  readonly exchangeRate: number | null;
 }
 
-export function PortfolioSummary({ enrichedState }: PortfolioSummaryProps): JSX.Element {
+export function PortfolioSummary({ enrichedState, exchangeRate }: PortfolioSummaryProps): JSX.Element {
   const { priceSummary } = enrichedState;
   const currencies = Object.keys(enrichedState.costTotalsByCurrency);
-  const secondaryCurrencies = currencies.filter((c) => c !== primaryCurrency(currencies));
+  // Show secondary currencies (non-ILS) as breakdown pills
+  const secondaryCurrencies = currencies.filter((c) => c !== 'ILS');
 
   return (
     <section className={styles.summary}>
       <div className={styles.summaryHeader}>
-        <HeroNetWorth enrichedState={enrichedState} />
+        <HeroNetWorth enrichedState={enrichedState} exchangeRate={exchangeRate} />
         <PriceBadge priceSummary={priceSummary} />
       </div>
 
       {secondaryCurrencies.length > 0 && (
         <div className={styles.secondaryRow}>
           {secondaryCurrencies.map((currency) => (
-            <SecondaryCurrencyPill key={currency} currency={currency} enrichedState={enrichedState} />
+            <SecondaryCurrencyPill
+              key={currency}
+              currency={currency}
+              enrichedState={enrichedState}
+              exchangeRate={exchangeRate}
+            />
           ))}
         </div>
       )}
@@ -32,18 +40,41 @@ export function PortfolioSummary({ enrichedState }: PortfolioSummaryProps): JSX.
 function SecondaryCurrencyPill({
   currency,
   enrichedState,
+  exchangeRate,
 }: {
   readonly currency: string;
   readonly enrichedState: EnrichedHoldingsState;
+  readonly exchangeRate: number | null;
 }): JSX.Element {
   const value = enrichedState.valuationTotalsByCurrency[currency];
   const gain = enrichedState.unrealizedGainTotalsByCurrency[currency];
+
+  const isUsd = currency === 'USD';
+  const ilsEquivalent = isUsd && value !== undefined
+    ? convertUsdToIls(value, exchangeRate)
+    : null;
 
   return (
     <div className={styles.secondaryPill}>
       <span className={styles.currencyLabel}>{currency}</span>
       <span className={styles.currencyValue} data-testid={`summary-value-${currency}`}>
-        {value !== undefined ? formatCurrency(value, currency) : '—'}
+        {ilsEquivalent !== null ? (
+          <>
+            <span>{formatCurrency(ilsEquivalent, 'ILS')}</span>
+            <span className={styles.currencySubValue}>~{formatCurrency(value!, currency)}</span>
+          </>
+        ) : value !== undefined ? (
+          isUsd && exchangeRate === null ? (
+            <>
+              <span>{formatCurrency(value, currency)}</span>
+              <span className={styles.currencySubValue}>(no rate)</span>
+            </>
+          ) : (
+            formatCurrency(value, currency)
+          )
+        ) : (
+          '—'
+        )}
       </span>
       {gain !== undefined && (
         <span className={`${styles.currencyGain} ${gain >= 0 ? styles.gainPositive : styles.gainNegative}`}>
@@ -64,12 +95,6 @@ function PriceBadge({ priceSummary }: { priceSummary: EnrichedHoldingsState['pri
     return <span className={styles.badgeYellow}>Partial prices</span>;
   }
   return <span className={styles.badgeRed}>Prices unavailable</span>;
-}
-
-function primaryCurrency(currencies: readonly string[]): string | undefined {
-  if (currencies.includes('ILS')) return 'ILS';
-  if (currencies.includes('USD')) return 'USD';
-  return currencies[0];
 }
 
 function formatCurrency(value: number, currency: string): string {
