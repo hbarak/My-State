@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pricePlugin } from '../api/src/plugins/price-plugin';
+import { boiRatePlugin } from '../api/src/plugins/boi-rate-plugin';
 import { psagotProxyPlugin } from '../api/src/plugins/psagot-proxy-plugin';
 import { psagotMockPlugin } from '../api/src/plugins/psagot-mock-plugin';
 
@@ -10,7 +11,7 @@ const root = fileURLToPath(new URL('../..', import.meta.url));
 const useMockApi = process.env.VITE_MOCK_API === 'true';
 
 export default defineConfig({
-  plugins: [react(), pricePlugin(), useMockApi ? psagotMockPlugin() : psagotProxyPlugin()],
+  plugins: [react(), pricePlugin(), boiRatePlugin(), useMockApi ? psagotMockPlugin() : psagotProxyPlugin()],
   resolve: {
     alias: {
       '@my-stocks/domain': resolve(root, 'packages/domain/src/index.ts'),

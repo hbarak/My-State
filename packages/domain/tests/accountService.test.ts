@@ -173,6 +173,55 @@ describe('AccountService', () => {
     expect(b!.name).toBe('Provider B Default');
   });
 
+  // S8 carry-forward: shouldUpdateName — isNameCustomized=false branches
+  // Covers the else-branch at AccountService.ts:159 that had no test coverage.
+
+  it('discoverAccounts — same name, isNameCustomized false → account placed in unchanged', async () => {
+    const { repository, service } = makeFixture();
+
+    // Pre-create an account whose name already matches the API display name
+    await repository.upsertAccount({
+      id: 'acct-sync',
+      providerId: 'prov',
+      name: 'Savings',
+      isNameCustomized: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const result = await service.discoverAccounts({
+      providerId: 'prov',
+      apiAccounts: [{ key: 'acct-sync', name: 'Savings', nickname: 'Savings' }],
+    });
+
+    expect(result.unchanged).toHaveLength(1);
+    expect(result.updated).toHaveLength(0);
+    expect(result.unchanged[0].name).toBe('Savings');
+  });
+
+  it('discoverAccounts — different name, isNameCustomized false → name updated, account in updated', async () => {
+    const { repository, service } = makeFixture();
+
+    // Pre-create an account whose name is stale (API has a newer display name)
+    await repository.upsertAccount({
+      id: 'acct-sync',
+      providerId: 'prov',
+      name: 'Old Nickname',
+      isNameCustomized: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const result = await service.discoverAccounts({
+      providerId: 'prov',
+      apiAccounts: [{ key: 'acct-sync', name: 'New Nickname', nickname: 'New Nickname' }],
+    });
+
+    expect(result.updated).toHaveLength(1);
+    expect(result.unchanged).toHaveLength(0);
+    expect(result.updated[0].name).toBe('New Nickname');
+  });
+
   // Regression: existing provider setup tests still pass (no interference from account storage)
   it('account storage does not interfere with provider storage', async () => {
     const { repository, service } = makeFixture();

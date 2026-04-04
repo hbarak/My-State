@@ -1,7 +1,7 @@
 import type { Plugin, ViteDevServer, Connect, ResolvedConfig } from 'vite';
 import { loadEnv } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { EODHDClient } from 'eodhd';
+import { EODHDClient, EODHDError } from 'eodhd';
 
 /**
  * Vite dev server plugin that proxies EODHD API requests.
@@ -21,6 +21,9 @@ import { EODHDClient } from 'eodhd';
 
 const MAX_TICKERS = 50;
 const MAX_BODY_BYTES = 64 * 1024; // 64KB — generous for up to 50 short ticker strings
+
+// [TEMPORARY: S9 diagnostic — remove before R10]
+let _eohdCallCount = 0;
 
 /**
  * Reads and parses a JSON body from a Node.js IncomingMessage stream.
@@ -78,6 +81,18 @@ interface PriceResult {
 }
 
 /**
+ * Translates an EODHD API error into a structured response body.
+ * Returns the quota_exceeded shape for HTTP 402, otherwise returns null
+ * (caller should propagate as 502).
+ */
+export function translateEodhdError(err: unknown): { error: string; message: string } | null {
+  if (err instanceof EODHDError && err.statusCode === 402) {
+    return { error: 'quota_exceeded', message: 'Daily price limit reached. Prices will refresh tomorrow.' };
+  }
+  return null;
+}
+
+/**
  * Infers currency from the EODHD ticker suffix.
  * .TA  → ILS (Tel Aviv Stock Exchange)
  * .US or bare ticker → USD
@@ -111,6 +126,12 @@ function toEodhdTicker(ticker: string): string {
 async function pricesHandler(req: IncomingMessage, res: ServerResponse, apiKey: string | undefined): Promise<void> {
   if (req.method !== 'POST') {
     sendError(res, 405, 'Method not allowed');
+    return;
+  }
+
+  // Mock path for QA E2E: ?mock_402=true simulates EODHD quota exhaustion
+  if (new URL(req.url ?? '/', 'http://localhost').searchParams.get('mock_402') === 'true') {
+    sendJson(res, { error: 'quota_exceeded', message: 'Daily price limit reached. Prices will refresh tomorrow.' });
     return;
   }
 
@@ -167,10 +188,19 @@ async function pricesHandler(req: IncomingMessage, res: ServerResponse, apiKey: 
   const [firstTicker, ...remainingTickers] = eodhdTickers;
   const sParam = remainingTickers.join(',');
 
+  // [TEMPORARY: S9 diagnostic — remove before R10]
+  _eohdCallCount++;
+  console.info(`[EODHD] call #${_eohdCallCount} in this session`);
+
   let quotesRaw: unknown;
   try {
     quotesRaw = await client.realTime(firstTicker, sParam ? { s: sParam } : undefined);
   } catch (err) {
+    const translated = translateEodhdError(err);
+    if (translated) {
+      sendJson(res, translated);
+      return;
+    }
     const message = err instanceof Error ? err.message : String(err);
     sendError(res, 502, `EODHD error: ${message}`);
     return;
