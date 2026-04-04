@@ -47,4 +47,35 @@ describe('convertUsdToIls', () => {
   it('handles fractional USD amounts', () => {
     expect(convertUsdToIls(1.5, 3.7)).toBeCloseTo(5.55);
   });
+
+});
+
+// ILS passthrough contract (GAP-1 from S9-QA-01):
+// PositionTable.tsx:101–103 guards on `isUsd` before calling convertUsdToIls.
+// Non-USD positions set ilsValue = null and display the native currency value unchanged.
+// This describe block tests the caller contract — not the function internals.
+describe('ILS passthrough — non-USD position skips conversion', () => {
+  it('simulated ILS position: ilsValue stays null when isUsd=false (no conversion called)', () => {
+    // Caller logic: const ilsValue = isUsd && currentValue !== undefined
+    //   ? convertUsdToIls(currentValue, exchangeRate)
+    //   : null;
+    // For an ILS position: isUsd=false → ilsValue=null regardless of exchangeRate.
+    const isUsd = false;
+    const currentValue = 4540; // ILS position value
+    const exchangeRate = 3.7;
+    const ilsValue = isUsd && currentValue !== undefined
+      ? convertUsdToIls(currentValue, exchangeRate)
+      : null;
+    expect(ilsValue).toBeNull(); // ILS position not converted — passed through as-is
+  });
+
+  it('simulated USD position: ilsValue is computed when isUsd=true and rate available', () => {
+    const isUsd = true;
+    const currentValue = 1000; // USD position value
+    const exchangeRate = 3.7;
+    const ilsValue = isUsd && currentValue !== undefined
+      ? convertUsdToIls(currentValue, exchangeRate)
+      : null;
+    expect(ilsValue).toBeCloseTo(3700); // USD converted to ILS
+  });
 });

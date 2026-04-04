@@ -14,7 +14,8 @@
     "test": "npm run test -w @my-stocks/domain",
     "test:api": "npm run test -w @my-stocks/api",
     "test:adapters": "npm run test:adapters -w @my-stocks/web",
-    "test:e2e": "npm run test:e2e -w @my-stocks/web"
+    "test:e2e": "npm run test:e2e -w @my-stocks/web",
+    "test:e2e:mock": "npm run test:e2e:mock -w @my-stocks/web"
   },
   "devDependencies": {
     "@esbuild/darwin-x64": "^0.27.4",
