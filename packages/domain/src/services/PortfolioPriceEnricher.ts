@@ -6,6 +6,7 @@ import type {
   PriceSummary,
 } from '../types/marketPrice';
 import type { MarketPriceResult, PriceEntry, PriceRequest } from './MarketPriceService';
+import { QuotaExceededError } from './MarketPriceService';
 import type { SecurityInput } from './TickerResolverService';
 import type { TickerMapping } from '../types/marketPrice';
 
@@ -69,11 +70,16 @@ export class PortfolioPriceEnricher {
     }
 
     let priceResult: MarketPriceResult | null = null;
+    let priceQuotaExceeded = false;
     if (priceRequests.length > 0) {
       try {
         priceResult = await this.priceService.getPrices(priceRequests);
-      } catch {
-        // Entire batch failed — priceResult stays null
+      } catch (err) {
+        if (err instanceof QuotaExceededError) {
+          priceQuotaExceeded = true;
+          // Continue enrichment without prices — positions render with 'unavailable' source
+        }
+        // Other errors: priceResult stays null
       }
     }
 
@@ -133,6 +139,7 @@ export class PortfolioPriceEnricher {
         pricesFetchedAt: priceResult?.fetchedAt,
         hardFactOnly: false,
         insufficientData,
+        priceQuotaExceeded: priceQuotaExceeded || undefined,
         positions: enrichedPositions,
         positionCount: enrichedPositions.length,
         valuationTotalsByCurrency: valuationTotals,

@@ -1,12 +1,6 @@
 import type { PriceFetcher, PriceResult } from '../../../../packages/domain/src/services/MarketPriceService';
-
-/** Thrown when the EODHD daily quota (HTTP 402) is exceeded. */
-export class QuotaExceededError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'QuotaExceededError';
-  }
-}
+import { QuotaExceededError } from '../../../../packages/domain/src/services/MarketPriceService';
+export { QuotaExceededError } from '../../../../packages/domain/src/services/MarketPriceService';
 
 /**
  * Browser-side PriceFetcher adapter for the EODHD price backend.
@@ -52,6 +46,20 @@ export class EodhdPriceFetcher implements PriceFetcher {
     }
 
     const body: unknown = await response.json();
+
+    // Structured error on 200: { error: 'quota_exceeded', message: '...' }
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      !Array.isArray(body) &&
+      (body as Record<string, unknown>).error === 'quota_exceeded'
+    ) {
+      const msg = (body as Record<string, unknown>).message;
+      throw new QuotaExceededError(
+        typeof msg === 'string' ? msg : 'Daily price limit reached. Prices will refresh tomorrow.',
+      );
+    }
+
     if (!Array.isArray(body)) {
       return tickers.map((ticker) => ({
         ticker,

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EnrichedHoldingsState } from '../../../../packages/domain/src/types/marketPrice';
-import { QuotaExceededError } from '../adapters/EodhdPriceFetcher';
 import { domain } from '../domain/bootstrap';
 
 export type EnrichedHoldingsStatus = 'loading' | 'ready' | 'error';
@@ -41,16 +40,11 @@ export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResu
           if (reqId !== requestIdRef.current) return;
           cachedData.set(providerId, result);
           setData(result);
+          setPriceQuotaExceeded(result.priceQuotaExceeded === true);
           setStatus('ready');
         })
         .catch((err: unknown) => {
           if (reqId !== requestIdRef.current) return;
-          if (err instanceof QuotaExceededError) {
-            // Quota exceeded: keep existing data visible, show inline warning only
-            setPriceQuotaExceeded(true);
-            setStatus(data !== null ? 'ready' : 'error');
-            return;
-          }
           setError(err instanceof Error ? err.message : 'Failed to load portfolio');
           setStatus('error');
         });

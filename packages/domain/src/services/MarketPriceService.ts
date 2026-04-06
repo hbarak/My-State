@@ -32,6 +32,18 @@ export interface MarketPriceResult {
   readonly errors: readonly PriceError[];
 }
 
+/**
+ * Thrown when the upstream price provider reports that its daily quota is exhausted.
+ * Adapter implementations (e.g. EodhdPriceFetcher) throw this; it propagates through
+ * MarketPriceService and PortfolioPriceEnricher so the UI can show an inline warning.
+ */
+export class QuotaExceededError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'QuotaExceededError';
+  }
+}
+
 export class MarketPriceService {
   constructor(private readonly priceFetcher: PriceFetcher) {}
 
@@ -59,6 +71,8 @@ export class MarketPriceService {
     try {
       fetchResults = await this.priceFetcher.fetchPrices(uniqueTickers);
     } catch (err) {
+      // QuotaExceededError must propagate so PortfolioPriceEnricher can flag the state
+      if (err instanceof QuotaExceededError) throw err;
       const reason = err instanceof Error ? err.message : 'Unknown fetch error';
       const errors: PriceError[] = requests.map((req) => ({
         securityId: req.securityId,

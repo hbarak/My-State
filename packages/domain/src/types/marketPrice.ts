@@ -62,6 +62,8 @@ export interface EnrichedHoldingsState {
   readonly pricesFetchedAt?: ISODateTime;
   readonly hardFactOnly: false;
   readonly insufficientData: boolean;
+  /** True when the price fetch was skipped due to EODHD daily quota exhaustion. */
+  readonly priceQuotaExceeded?: boolean;
 
   readonly positions: readonly EnrichedHoldingsPosition[];
   readonly positionCount: number;

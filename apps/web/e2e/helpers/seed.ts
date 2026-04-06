@@ -10,6 +10,7 @@ const KEYS = {
   holdingRecords: `${STORAGE_PREFIX}portfolio-holding-records.v1`,
   importRuns: `${STORAGE_PREFIX}portfolio-import-runs.v1`,
   accounts: `${STORAGE_PREFIX}accounts.v1`,
+  tickerMappings: `${STORAGE_PREFIX}ticker-mappings.v1`,
 };
 
 export async function clearAllData(page: Page): Promise<void> {
@@ -61,5 +62,15 @@ export async function seedAccounts(
   await page.evaluate(
     ({ key, data }) => localStorage.setItem(key, JSON.stringify(data)),
     { key: KEYS.accounts, data: accounts },
+  );
+}
+
+export async function seedTickerMappings(
+  page: Page,
+  mappings: readonly object[],
+): Promise<void> {
+  await page.evaluate(
+    ({ key, data }) => localStorage.setItem(key, JSON.stringify(data)),
+    { key: KEYS.tickerMappings, data: mappings },
   );
 }

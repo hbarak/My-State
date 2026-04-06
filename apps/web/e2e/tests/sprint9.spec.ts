@@ -15,7 +15,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { clearAllData, goToImportReady } from '../helpers/seed';
+import { clearAllData, goToImportReady, seedTickerMappings } from '../helpers/seed';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(__dirname, '../fixtures');
@@ -63,16 +63,25 @@ test('AC1 — QTY: integer quantity renders without .00 suffix', async ({ page }
 // ── AC2: EODHD 402 quota exceeded → UI warning ───────────────────────────────
 
 test('AC2 — EODHD 402: quota exceeded warning appears after mock_402 response', async ({ page }) => {
-  // Import data to get a non-empty portfolio
+  // Import a CSV that has a USD/EODHD position (72179369 = QQQ ETF)
   await goToImportReady(page);
-  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'valid-holdings.csv'));
+  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'holdings-with-usd.csv'));
   await expect(page.getByText('Import complete')).toBeVisible({ timeout: 10_000 });
 
-  // Navigate to Portfolio
-  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
+  // Seed a ticker mapping for the QQQ position so FanOutPriceFetcher routes it
+  // to EodhdPriceFetcher (non-numeric ticker → /api/prices), not Maya (/api/prices-maya).
+  await seedTickerMappings(page, [
+    {
+      securityId: '72179369',
+      securityName: 'QQQ US ETF',
+      ticker: 'QQQ',
+      resolvedAt: new Date().toISOString(),
+      resolvedBy: 'manual',
+    },
+  ]);
 
-  // Intercept /api/prices to simulate 402 quota response
+  // Intercept /api/prices BEFORE navigating to Portfolio so the initial mount
+  // price fetch is captured.
   await page.route('/api/prices', async (route) => {
     await route.fulfill({
       status: 200,
@@ -84,8 +93,8 @@ test('AC2 — EODHD 402: quota exceeded warning appears after mock_402 response'
     });
   });
 
-  // Trigger a price refresh
-  await page.getByRole('button', { name: 'Refresh prices' }).click();
+  // Navigate to Portfolio — initial price fetch fires on mount and hits the intercept
+  await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
 
   // The inline quota warning should appear in PortfolioActionBar
   await expect(
@@ -161,7 +170,18 @@ test('AC4b — ILS fallback: rate unavailable → USD value shown with ~ prefix'
   await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'holdings-with-usd.csv'));
   await expect(page.getByText('Import complete')).toBeVisible({ timeout: 10_000 });
 
-  // Block /api/boi-rate to simulate rate unavailable
+  // Seed a ticker mapping so /api/prices is called for the QQQ position
+  await seedTickerMappings(page, [
+    {
+      securityId: '72179369',
+      securityName: 'QQQ US ETF',
+      ticker: 'QQQ',
+      resolvedAt: new Date().toISOString(),
+      resolvedBy: 'manual',
+    },
+  ]);
+
+  // /api/boi-rate returns rate_unavailable → exchangeRate stays null
   await page.route('/api/boi-rate', async (route) => {
     await route.fulfill({
       status: 200,
@@ -170,26 +190,29 @@ test('AC4b — ILS fallback: rate unavailable → USD value shown with ~ prefix'
     });
   });
 
-  // Navigate to Portfolio (page load triggers boi-rate fetch)
-  await page.goto('/');
-  await clearAllData(page);
-  await page.reload();
-  await page.waitForSelector('button:has-text("Portfolio")');
+  // /api/prices returns a successful USD price so currentValue is defined.
+  // The ~ prefix only renders when currentValue is defined but exchangeRate is null.
+  await page.route('/api/prices', async (route) => {
+    const body = route.request().postDataJSON() as { tickers: string[] };
+    const results = body.tickers.map((ticker: string) => ({
+      ticker,
+      status: 'success',
+      price: 480,
+      currency: 'USD',
+    }));
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(results),
+    });
+  });
 
-  // Re-import after clearing (route interception is active for this page context)
-  await goToImportReady(page);
-  await page.locator('#csv-upload').setInputFiles(path.join(FIXTURES, 'holdings-with-usd.csv'));
-  await expect(page.getByText('Import complete')).toBeVisible({ timeout: 10_000 });
-
+  // Navigate to Portfolio — boi-rate and prices fetches fire on mount
   await page.getByRole('button', { name: 'Portfolio', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Positions' })).toBeVisible({ timeout: 10_000 });
 
-  // When rate unavailable, USD value cells show ~ prefix
-  const table = page.locator('table');
-  await expect(table).toBeVisible();
-
-  // At least one value cell should have aria-label about ILS conversion unavailable
-  const unavailableCell = page.locator('[aria-label*="ILS conversion unavailable"]');
+  // Value cell for USD position should show ~ prefix (ILS conversion unavailable)
+  const unavailableCell = page.locator('span[aria-label*="Approximate value"]');
   await expect(unavailableCell).toBeVisible({ timeout: 10_000 });
 
   // Hero label should say "est." (estimate, because no rate)
