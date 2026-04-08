@@ -15,15 +15,19 @@ import {
   ConsoleTelemetrySink,
   IsraeliSecurityLookupImpl,
 } from '@my-stocks/domain';
-import type { HttpPort } from '@my-stocks/domain';
-import { BrowserLocalStorageJsonStore, PsagotApiClient } from '@my-stocks/infra';
+import type { HttpPort, PortfolioRepository } from '@my-stocks/domain';
+import { BrowserLocalStorageJsonStore, PsagotApiClient, SupabasePortfolioRepository } from '@my-stocks/infra';
 import { EodhdPriceFetcher } from '../adapters/EodhdPriceFetcher';
 import { EodhdTickerSearcher } from '../adapters/EodhdTickerSearcher';
 import { MayaPriceFetcher } from '../adapters/MayaPriceFetcher';
 import { FanOutPriceFetcher } from '../adapters/FanOutPriceFetcher';
+import { supabase } from '../lib/supabaseClient';
 
-const store = new BrowserLocalStorageJsonStore('my-stocks:web:');
-const repository = new LocalPortfolioRepository(store);
+export const isMockMode = import.meta.env.VITE_MOCK_API === 'true';
+
+const repository: PortfolioRepository = isMockMode
+  ? new LocalPortfolioRepository(new BrowserLocalStorageJsonStore('my-stocks:web:'))
+  : new SupabasePortfolioRepository(supabase);
 const telemetry = new TelemetryService(new ConsoleTelemetrySink());
 
 const eodhdFetcher = new EodhdPriceFetcher();

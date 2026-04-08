@@ -5,7 +5,10 @@ import {
   SPRINT1_TRADES_INTEGRATION_ID,
   domain,
   ensureSprintOnePreviewSetup,
+  isMockMode,
 } from './domain/bootstrap';
+import { supabase } from './lib/supabaseClient';
+import { LoginPage } from './auth/LoginPage';
 import { parseCsvFileForHandoff, type UploadedCsvPayload } from './import/csvUpload';
 import {
   saveResolutionAuditRecord,
@@ -25,6 +28,7 @@ type CommitResult = Awaited<ReturnType<typeof domain.importService.commitImport>
 type HoldingsState = Awaited<ReturnType<typeof domain.financialStateService.getTotalHoldingsState>>;
 
 type ActiveView = 'portfolio' | 'data';
+type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
 type BootstrapStatus = 'loading' | 'ready' | 'error';
 type ImportStatus = 'idle' | 'processing' | 'awaiting_error_action' | 'completed' | 'failed' | 'cancelled';
 
@@ -35,6 +39,7 @@ interface ReasonSummary {
 }
 
 export default function App(): JSX.Element {
+  const [authState, setAuthState] = useState<AuthState>(isMockMode ? 'authenticated' : 'loading');
   const [activeView, setActiveView] = useState<ActiveView>('portfolio');
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>('loading');
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -51,7 +56,30 @@ export default function App(): JSX.Element {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const activeRunToken = useRef(0);
 
+  // Auth state — not registered in mock mode
   useEffect(() => {
+    if (isMockMode) return;
+
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthState(session ? 'authenticated' : 'unauthenticated');
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') setAuthState('authenticated');
+      if (event === 'SIGNED_OUT') setAuthState('unauthenticated');
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignIn = async (email: string, password: string): Promise<void> => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    // onAuthStateChange fires SIGNED_IN → setAuthState('authenticated')
+  };
+
+  useEffect(() => {
+    if (authState !== 'authenticated') return;
     let cancelled = false;
     void ensureSprintOnePreviewSetup()
       .then(async () => {
@@ -73,7 +101,7 @@ export default function App(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authState]);
 
   const invalidCount = preview?.invalidRows.length ?? 0;
   const duplicateCount = preview?.duplicateRows.length ?? 0;
@@ -259,6 +287,14 @@ export default function App(): JSX.Element {
 
   const isBusy = status === 'processing';
   const canUpload = bootstrapStatus === 'ready' && !isBusy;
+
+  if (authState === 'loading') {
+    return <div className={styles.authLoading}>Loading…</div>;
+  }
+
+  if (authState === 'unauthenticated') {
+    return <LoginPage onSignIn={handleSignIn} />;
+  }
 
   return (
     <main className={styles.shell}>
