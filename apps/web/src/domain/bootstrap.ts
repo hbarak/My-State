@@ -91,6 +91,10 @@ export const SPRINT1_HOLDINGS_INTEGRATION_ID = 'integration-web-demo-holdings-cs
 export const PSAGOT_API_INTEGRATION_ID = 'psagot-api-holdings';
 
 export async function ensureSprintOnePreviewSetup(): Promise<void> {
+  // Check-then-skip: single SELECT to avoid redundant DB writes on every app start
+  const providers = await repository.getProviders();
+  if (providers.some((p) => p.id === SPRINT1_PROVIDER_ID)) return;
+
   const now = nowIso();
 
   // Ensure default accounts exist for backward compatibility

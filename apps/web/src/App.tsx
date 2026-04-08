@@ -9,6 +9,12 @@ import {
 } from './domain/bootstrap';
 import { supabase } from './lib/supabaseClient';
 import { LoginPage } from './auth/LoginPage';
+import { MigrationPrompt } from './migration/MigrationPrompt';
+import {
+  hasMigrationCompleted,
+  hasLocalStorageData,
+  runMigration,
+} from './migration/localStorageMigration';
 import { parseCsvFileForHandoff, type UploadedCsvPayload } from './import/csvUpload';
 import {
   saveResolutionAuditRecord,
@@ -30,6 +36,7 @@ type HoldingsState = Awaited<ReturnType<typeof domain.financialStateService.getT
 type ActiveView = 'portfolio' | 'data';
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
 type BootstrapStatus = 'loading' | 'ready' | 'error';
+type MigrationStatus = 'idle' | 'running' | 'done' | 'error';
 type ImportStatus = 'idle' | 'processing' | 'awaiting_error_action' | 'completed' | 'failed' | 'cancelled';
 
 interface ReasonSummary {
@@ -40,6 +47,10 @@ interface ReasonSummary {
 
 export default function App(): JSX.Element {
   const [authState, setAuthState] = useState<AuthState>(isMockMode ? 'authenticated' : 'loading');
+  const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>('idle');
+  const [migrationStep, setMigrationStep] = useState(0);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [needsMigration, setNeedsMigration] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('portfolio');
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>('loading');
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -80,6 +91,12 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     if (authState !== 'authenticated') return;
+    // In mock mode, skip migration entirely
+    if (!isMockMode && !hasMigrationCompleted() && hasLocalStorageData()) {
+      setNeedsMigration(true);
+      return; // wait for user confirmation
+    }
+
     let cancelled = false;
     void ensureSprintOnePreviewSetup()
       .then(async () => {
@@ -101,7 +118,28 @@ export default function App(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [authState]);
+  }, [authState, needsMigration]);
+
+  const handleMigrationConfirm = async (): Promise<void> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    setMigrationStatus('running');
+    setMigrationError(null);
+    try {
+      await runMigration(supabase, session.user.id, (step) => {
+        setMigrationStep(step);
+      });
+      setMigrationStatus('done');
+      // Give a brief moment to see the success message before proceeding
+      setTimeout(() => {
+        setNeedsMigration(false);
+        setMigrationStatus('idle');
+      }, 2000);
+    } catch (err) {
+      setMigrationStatus('error');
+      setMigrationError(err instanceof Error ? err.message : 'Unknown error');
+    }
+  };
 
   const invalidCount = preview?.invalidRows.length ?? 0;
   const duplicateCount = preview?.duplicateRows.length ?? 0;
@@ -294,6 +332,18 @@ export default function App(): JSX.Element {
 
   if (authState === 'unauthenticated') {
     return <LoginPage onSignIn={handleSignIn} />;
+  }
+
+  if (needsMigration) {
+    return (
+      <MigrationPrompt
+        status={migrationStatus}
+        step={migrationStep}
+        error={migrationError}
+        onConfirm={() => { void handleMigrationConfirm(); }}
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
   return (

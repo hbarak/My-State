@@ -7,6 +7,7 @@ export default defineConfig({
       'packages/domain/tests/**/*.{test,spec}.ts',
       'apps/web/src/adapters/__tests__/**/*.{test,spec}.ts',
       'apps/web/src/portfolio/__tests__/**/*.{test,spec}.ts',
+      'apps/web/src/migration/__tests__/**/*.{test,spec}.ts',
       'apps/api/__tests__/**/*.{test,spec}.ts',
     ],
     exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
