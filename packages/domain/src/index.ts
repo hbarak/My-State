@@ -2,6 +2,7 @@ export * from './api/sheetsApi';
 export * from './api/financialStateApi';
 export * from './config/sync';
 export * from './data/israeliSecurities';
+export * from './data/dataSourceCatalog';
 export * from './ports';
 export * from './repositories';
 export * from './services';

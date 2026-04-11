@@ -4,6 +4,7 @@ export * from './transaction';
 export * from './holding';
 export * from './sync';
 export * from './provider';
+export * from './dataSource';
 export * from './portfolio';
 export * from './financialState';
 export * from './marketPrice';
