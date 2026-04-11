@@ -4,6 +4,7 @@ import type {
   PsagotAuthorizedSession,
   PsagotBalance,
   PsagotCredentials,
+  PsagotMarketRate,
   PsagotPendingSession,
   PsagotSecurityInfo,
 } from '@my-stocks/domain';
@@ -14,6 +15,7 @@ const ACCOUNTS_PATH = '/V2/json/accounts?catalog=unified';
 const BALANCES_PATH = '/V2/json2/account/view/balances';
 const SECURITY_INFO_PATH = '/V2/json2/market/table/simple';
 const SECURITY_INFO_FIELDS = 'HebName,EngName,EngSymbol,Exchange,CurrencyCode,CurrencyDivider,IsForeign,ItemType';
+const MARKET_RATE_FIELDS = 'BaseRate,CurrencyCode,CurrencyDivider,LastKnownRateDate';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 interface PsagotApiErrorObject {
@@ -281,6 +283,40 @@ export class PsagotApiClient {
       currencyDivider: typeof sec.CurrencyDivider === 'number' ? sec.CurrencyDivider : 1,
       isForeign: Boolean(sec.IsForeign),
       itemType: (sec.ItemType as string | null) ?? null,
+    }));
+  }
+
+  /**
+   * Fetches real-time price snapshots for the given equity numbers.
+   * Uses the market/table/simple endpoint with BaseRate + LastKnownRateDate fields.
+   * More efficient than fetchBalances() for price-only refreshes: one request,
+   * no per-account iteration, no rate limiting delays.
+   *
+   * BaseRate is in the security's native unit — apply currencyDivider to normalize
+   * (e.g. divide by 100 for TASE funds quoted in agorot).
+   */
+  async fetchMarketRates(
+    session: PsagotAuthorizedSession,
+    equityNumbers: readonly string[],
+  ): Promise<PsagotMarketRate[]> {
+    if (equityNumbers.length === 0) return [];
+    this.assertValidSession(session);
+
+    const securities = equityNumbers.map(encodeURIComponent).join('%2C');
+    const url = `${this.baseUrl}${SECURITY_INFO_PATH}?securities=${securities}&fields=${MARKET_RATE_FIELDS}&catalog=unified`;
+    const response = await this.authenticatedGet(url, session);
+
+    const body = response as Record<string, unknown>;
+    const table = body.Table as Record<string, unknown> | undefined;
+    const raw = (table?.Security ?? []) as Record<string, unknown>[];
+    if (!Array.isArray(raw)) return [];
+
+    return raw.map((sec): PsagotMarketRate => ({
+      equityNumber: String(sec['-Key'] ?? ''),
+      baseRate: typeof sec.BaseRate === 'number' ? sec.BaseRate : 0,
+      currencyCode: typeof sec.CurrencyCode === 'string' ? sec.CurrencyCode : 'ILS',
+      currencyDivider: typeof sec.CurrencyDivider === 'number' ? sec.CurrencyDivider : 1,
+      lastKnownRateDate: typeof sec.LastKnownRateDate === 'string' ? sec.LastKnownRateDate : new Date().toISOString(),
     }));
   }
 

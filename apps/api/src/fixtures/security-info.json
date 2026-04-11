@@ -12,7 +12,9 @@
         "CurrencyDivider": 100,
         "ItemType": "Fund",
         "IsEtf": false,
-        "IsForeign": false
+        "IsForeign": false,
+        "BaseRate": 12345,
+        "LastKnownRateDate": "2026-04-02T00:00:00.0000000+03:00"
       },
       {
         "-Key": "5112628",
@@ -24,7 +26,9 @@
         "CurrencyDivider": 100,
         "ItemType": "Fund",
         "IsEtf": false,
-        "IsForeign": false
+        "IsForeign": false,
+        "BaseRate": 23456,
+        "LastKnownRateDate": "2026-04-02T00:00:00.0000000+03:00"
       },
       {
         "-Key": "1183441",
@@ -36,7 +40,9 @@
         "CurrencyDivider": 100,
         "ItemType": "Fund",
         "IsEtf": false,
-        "IsForeign": false
+        "IsForeign": false,
+        "BaseRate": 34567,
+        "LastKnownRateDate": "2026-04-02T00:00:00.0000000+03:00"
       },
       {
         "-Key": "1209444",
@@ -48,7 +54,9 @@
         "CurrencyDivider": 100,
         "ItemType": "Fund",
         "IsEtf": false,
-        "IsForeign": false
+        "IsForeign": false,
+        "BaseRate": 10234,
+        "LastKnownRateDate": "2026-04-02T00:00:00.0000000+03:00"
       },
       {
         "-Key": "1084128",
@@ -60,7 +68,9 @@
         "CurrencyDivider": 100,
         "ItemType": "Fund",
         "IsEtf": false,
-        "IsForeign": false
+        "IsForeign": false,
+        "BaseRate": 9876,
+        "LastKnownRateDate": "2026-04-02T00:00:00.0000000+03:00"
       },
       {
         "-Key": "75416503",
@@ -72,7 +82,9 @@
         "CurrencyDivider": 1,
         "ItemType": "ETF",
         "IsEtf": true,
-        "IsForeign": true
+        "IsForeign": true,
+        "BaseRate": 510.25,
+        "LastKnownRateDate": "2026-04-01T21:00:00.0000000+03:00"
       },
       {
         "-Key": "72179369",
@@ -84,7 +96,9 @@
         "CurrencyDivider": 1,
         "ItemType": "ETF",
         "IsEtf": true,
-        "IsForeign": true
+        "IsForeign": true,
+        "BaseRate": 420.50,
+        "LastKnownRateDate": "2026-04-01T21:00:00.0000000+03:00"
       }
     ]
   }

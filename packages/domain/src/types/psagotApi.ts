@@ -51,6 +51,21 @@ export interface PsagotSecurityInfo {
   readonly itemType: string | null;
 }
 
+/**
+ * Real-time price snapshot from the Psagot market/table/simple endpoint.
+ * BaseRate is in the security's native unit (apply currencyDivider to normalize).
+ * lastKnownRateDate is the exchange timestamp for when this price was last set.
+ */
+export interface PsagotMarketRate {
+  readonly equityNumber: string;
+  /** Price in native units (agorot for TASE funds — divide by currencyDivider). */
+  readonly baseRate: number;
+  readonly currencyCode: string;
+  readonly currencyDivider: number;
+  /** ISO timestamp from the exchange of when this rate was last updated. */
+  readonly lastKnownRateDate: string;
+}
+
 export interface PsagotAccountSummary {
   readonly onlineCash: number;
   readonly morningCash: number;

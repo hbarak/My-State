@@ -4,6 +4,11 @@ export interface PriceResult {
   readonly price?: number;
   readonly currency?: string;
   readonly error?: string;
+  /**
+   * Optional per-result timestamp from the price source (e.g. Psagot's LastKnownRateDate).
+   * When present, overrides the batch fetchedAt when building PriceEntry.fetchedAt.
+   */
+  readonly fetchedAt?: string;
 }
 
 export interface PriceFetcher {
@@ -114,7 +119,7 @@ export class MarketPriceService {
           prices.set(securityId, {
             price: result.price,
             currency: result.currency ?? 'USD',
-            fetchedAt,
+            fetchedAt: result.fetchedAt ?? fetchedAt,
           });
         }
       }
