@@ -14,13 +14,18 @@ import {
   TelemetryService,
   ConsoleTelemetrySink,
   IsraeliSecurityLookupImpl,
+  PSAGOT_PROVIDER_ID,
+  PSAGOT_PROVIDER_CAPABILITIES,
+  CSV_PROVIDER_CAPABILITIES,
 } from '@my-stocks/domain';
 import type { HttpPort, PortfolioRepository } from '@my-stocks/domain';
 import { BrowserLocalStorageJsonStore, PsagotApiClient, SupabasePortfolioRepository } from '@my-stocks/infra';
 import { EodhdPriceFetcher } from '../adapters/EodhdPriceFetcher';
 import { EodhdTickerSearcher } from '../adapters/EodhdTickerSearcher';
 import { MayaPriceFetcher } from '../adapters/MayaPriceFetcher';
-import { FanOutPriceFetcher } from '../adapters/FanOutPriceFetcher';
+import { FanOutPriceFetcher, isTaseNumericId } from '../adapters/FanOutPriceFetcher';
+import { PsagotSessionStore } from '../adapters/PsagotSessionStore';
+import { PsagotPriceFetcher } from '../adapters/PsagotPriceFetcher';
 import { supabase } from '../lib/supabaseClient';
 
 export const isMockMode = import.meta.env.VITE_MOCK_API === 'true';
@@ -29,16 +34,6 @@ const repository: PortfolioRepository = isMockMode
   ? new LocalPortfolioRepository(new BrowserLocalStorageJsonStore('my-stocks:web:'))
   : new SupabasePortfolioRepository(supabase);
 const telemetry = new TelemetryService(new ConsoleTelemetrySink());
-
-const eodhdFetcher = new EodhdPriceFetcher();
-const mayaFetcher = new MayaPriceFetcher();
-const priceFetcher = new FanOutPriceFetcher(eodhdFetcher, mayaFetcher);
-const tickerSearcher = new EodhdTickerSearcher();
-const israeliLookup = new IsraeliSecurityLookupImpl();
-const tickerResolver = new TickerResolverService(repository, tickerSearcher, israeliLookup);
-const priceService = new MarketPriceService(priceFetcher);
-const priceEnricher = new PortfolioPriceEnricher(tickerResolver, priceService);
-const financialStateService = new FinancialStateService(repository, priceEnricher);
 
 const fetchHttpAdapter: HttpPort = {
   async request(req) {
@@ -70,6 +65,50 @@ const psagotApiImportHandler = new PsagotApiImportHandler();
 const accountService = new AccountService(repository);
 const psagotApiSyncService = new PsagotApiSyncService(repository, accountService, psagotApiImportHandler);
 
+export const psagotSessionStore = new PsagotSessionStore();
+const psagotPriceFetcher = new PsagotPriceFetcher(psagotApiClient, psagotSessionStore);
+
+const eodhdFetcher = new EodhdPriceFetcher();
+const mayaFetcher = new MayaPriceFetcher();
+
+// Route-based price fetcher:
+//   1. Psagot equity numbers (known from last sync) — exclusive, direct fetchMarketRates
+//   2. TASE all-digit IDs (not in Psagot set) — exclusive, Maya API
+//   3. Symbol tickers — non-exclusive: Psagot (via autoComplete) + EODHD in parallel
+// EODHD is the fallback for anything not exclusively claimed or when routes fail.
+export const priceFetcher = new FanOutPriceFetcher(
+  [
+    {
+      name: 'psagot-equity',
+      // canHandle returns false by default; updateKnownTickers() populates the set
+      // routeCanHandle() in FanOutPriceFetcher checks knownTickers first
+      canHandle: () => false,
+      fetcher: psagotPriceFetcher,
+      exclusive: true,
+    },
+    {
+      name: 'maya',
+      canHandle: isTaseNumericId,
+      fetcher: mayaFetcher,
+      exclusive: true,
+    },
+    {
+      name: 'psagot-symbol',
+      canHandle: (ticker) => !isTaseNumericId(ticker),
+      fetcher: psagotPriceFetcher,
+      exclusive: false,
+    },
+  ],
+  eodhdFetcher,
+);
+
+const tickerSearcher = new EodhdTickerSearcher();
+const israeliLookup = new IsraeliSecurityLookupImpl();
+const tickerResolver = new TickerResolverService(repository, tickerSearcher, israeliLookup);
+const priceService = new MarketPriceService(priceFetcher);
+const priceEnricher = new PortfolioPriceEnricher(tickerResolver, priceService);
+const financialStateService = new FinancialStateService(repository, priceEnricher);
+
 export const domain = {
   repository,
   importService: new PortfolioImportService(repository, telemetry),
@@ -85,32 +124,47 @@ export const domain = {
   resetAllData: () => repository.resetAllData(),
 };
 
-export const SPRINT1_PROVIDER_ID = 'provider-web-demo';
-export const SPRINT1_TRADES_INTEGRATION_ID = 'integration-web-demo-trades-csv';
-export const SPRINT1_HOLDINGS_INTEGRATION_ID = 'integration-web-demo-holdings-csv';
-export const PSAGOT_API_INTEGRATION_ID = 'psagot-api-holdings';
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider / integration constants
+// ─────────────────────────────────────────────────────────────────────────────
 
-export async function ensureSprintOnePreviewSetup(): Promise<void> {
-  // Check-then-skip: single SELECT to avoid redundant DB writes on every app start
+// Re-export PSAGOT_PROVIDER_ID from domain catalog so callers use the canonical constant
+export { PSAGOT_PROVIDER_ID };
+
+/** CSV-only demo provider (trades + holdings CSV imports) */
+export const CSV_PROVIDER_ID = 'provider-csv-demo';
+export const CSV_TRADES_INTEGRATION_ID = 'integration-csv-demo-trades';
+export const CSV_HOLDINGS_INTEGRATION_ID = 'integration-csv-demo-holdings';
+
+export const PSAGOT_API_INTEGRATION_ID = 'psagot-api-holdings';
+export const PSAGOT_CSV_INTEGRATION_ID = 'psagot-csv-holdings';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Seed: CSV demo provider
+// Provides trades + holdings CSV import. No auth, no account discovery.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function ensureCsvProviderSetup(): Promise<void> {
   const providers = await repository.getProviders();
-  if (providers.some((p) => p.id === SPRINT1_PROVIDER_ID)) return;
+  if (providers.some((p) => p.id === CSV_PROVIDER_ID)) return;
 
   const now = nowIso();
 
-  // Ensure default accounts exist for backward compatibility
   await ensureDefaultAccounts(repository);
 
   await repository.upsertProvider({
-    id: SPRINT1_PROVIDER_ID,
-    name: 'Web Demo Broker',
+    id: CSV_PROVIDER_ID,
+    name: 'CSV Import',
     status: 'active',
+    capabilities: CSV_PROVIDER_CAPABILITIES,
+    authMethod: 'none',
     createdAt: now,
     updatedAt: now,
   });
 
   await repository.upsertIntegration({
-    id: SPRINT1_TRADES_INTEGRATION_ID,
-    providerId: SPRINT1_PROVIDER_ID,
+    id: CSV_TRADES_INTEGRATION_ID,
+    providerId: CSV_PROVIDER_ID,
     kind: 'document',
     dataDomain: 'trades',
     communicationMethod: 'document_csv',
@@ -123,8 +177,8 @@ export async function ensureSprintOnePreviewSetup(): Promise<void> {
   });
 
   await repository.upsertIntegration({
-    id: SPRINT1_HOLDINGS_INTEGRATION_ID,
-    providerId: SPRINT1_PROVIDER_ID,
+    id: CSV_HOLDINGS_INTEGRATION_ID,
+    providerId: CSV_PROVIDER_ID,
     kind: 'document',
     dataDomain: 'holdings',
     communicationMethod: 'document_csv',
@@ -137,10 +191,10 @@ export async function ensureSprintOnePreviewSetup(): Promise<void> {
   });
 
   await repository.upsertMappingProfile({
-    id: 'profile-web-demo-trades-v1',
-    providerId: SPRINT1_PROVIDER_ID,
-    providerIntegrationId: SPRINT1_TRADES_INTEGRATION_ID,
-    name: 'Web Demo Trades CSV v1',
+    id: 'profile-csv-trades-v1',
+    providerId: CSV_PROVIDER_ID,
+    providerIntegrationId: CSV_TRADES_INTEGRATION_ID,
+    name: 'Trades CSV v1',
     version: 1,
     isActive: true,
     inputFormat: 'csv',
@@ -159,37 +213,17 @@ export async function ensureSprintOnePreviewSetup(): Promise<void> {
     requiredCanonicalFields: ['accountId', 'symbol', 'side', 'quantity', 'price', 'tradeAt'],
     optionalCanonicalFields: ['fees', 'currency', 'externalTradeId', 'note'],
     valueMappings: {
-      side: {
-        BUY: 'buy',
-        SELL: 'sell',
-      },
+      side: { BUY: 'buy', SELL: 'sell' },
     },
     createdAt: now,
     updatedAt: now,
   });
 
-  // R4 shortcut: API integration shares demo provider. Replace with dedicated
-  // Psagot provider when multi-broker support is added (R5).
-  await repository.upsertIntegration({
-    id: PSAGOT_API_INTEGRATION_ID,
-    providerId: SPRINT1_PROVIDER_ID,
-    kind: 'api',
-    dataDomain: 'holdings',
-    communicationMethod: 'api_pull',
-    syncMode: 'manual',
-    direction: 'ingest',
-    adapterKey: 'psagot-api-v2',
-    isEnabled: true,
-    notes: 'Psagot trade1.psagot.co.il REST API — manual sync with SMS OTP',
-    createdAt: now,
-    updatedAt: now,
-  });
-
   await repository.upsertMappingProfile({
-    id: 'profile-web-demo-holdings-v1',
-    providerId: SPRINT1_PROVIDER_ID,
-    providerIntegrationId: SPRINT1_HOLDINGS_INTEGRATION_ID,
-    name: 'Web Demo Holdings CSV v1 (Hebrew)',
+    id: 'profile-csv-holdings-v1',
+    providerId: CSV_PROVIDER_ID,
+    providerIntegrationId: CSV_HOLDINGS_INTEGRATION_ID,
+    name: 'Holdings CSV v1 (Hebrew)',
     version: 1,
     isActive: true,
     inputFormat: 'csv',
@@ -209,6 +243,81 @@ export async function ensureSprintOnePreviewSetup(): Promise<void> {
     createdAt: now,
     updatedAt: now,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Seed: Psagot provider
+// Israeli broker — holdings via API (OTP auth) and CSV export.
+// Linked to the Psagot DataSource (same session).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function ensurePsagotProviderSetup(): Promise<void> {
+  const providers = await repository.getProviders();
+  if (providers.some((p) => p.id === PSAGOT_PROVIDER_ID)) return;
+
+  const now = nowIso();
+
+  await repository.upsertProvider({
+    id: PSAGOT_PROVIDER_ID,
+    name: 'Psagot',
+    status: 'active',
+    capabilities: PSAGOT_PROVIDER_CAPABILITIES,
+    authMethod: 'otp_2fa',
+    linkedDataSourceId: 'datasource-psagot',
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await repository.upsertIntegration({
+    id: PSAGOT_API_INTEGRATION_ID,
+    providerId: PSAGOT_PROVIDER_ID,
+    kind: 'api',
+    dataDomain: 'holdings',
+    communicationMethod: 'api_pull',
+    syncMode: 'manual',
+    direction: 'ingest',
+    adapterKey: 'psagot-api-v2',
+    isEnabled: true,
+    notes: 'Psagot trade1.psagot.co.il REST API — manual sync with SMS OTP',
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await repository.upsertIntegration({
+    id: PSAGOT_CSV_INTEGRATION_ID,
+    providerId: PSAGOT_PROVIDER_ID,
+    kind: 'document',
+    dataDomain: 'holdings',
+    communicationMethod: 'document_csv',
+    syncMode: 'manual',
+    direction: 'ingest',
+    adapterKey: 'psagot-csv-holdings-v1',
+    isEnabled: true,
+    notes: 'Psagot holdings CSV export (Hebrew columns, agorot monetary unit)',
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy shim — preserves backward-compat for any code still referencing
+// SPRINT1_PROVIDER_ID. Points to the CSV provider which replaces it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** @deprecated Use CSV_PROVIDER_ID */
+export const SPRINT1_PROVIDER_ID = CSV_PROVIDER_ID;
+/** @deprecated Use CSV_TRADES_INTEGRATION_ID */
+export const SPRINT1_TRADES_INTEGRATION_ID = CSV_TRADES_INTEGRATION_ID;
+/** @deprecated Use CSV_HOLDINGS_INTEGRATION_ID */
+export const SPRINT1_HOLDINGS_INTEGRATION_ID = CSV_HOLDINGS_INTEGRATION_ID;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Combined setup — call on app start
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function ensureSprintOnePreviewSetup(): Promise<void> {
+  await ensureCsvProviderSetup();
+  await ensurePsagotProviderSetup();
 }
 
 function nowIso(): string {

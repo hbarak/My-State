@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnrichedHoldings } from '../hooks/useEnrichedHoldings';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
-import { SPRINT1_PROVIDER_ID, domain } from '../domain/bootstrap';
+import { domain } from '../domain/bootstrap';
 import { PortfolioSummary } from './PortfolioSummary';
 import { PositionTable } from './PositionTable';
 import { PortfolioActionBar } from './PortfolioActionBar';
@@ -49,7 +49,8 @@ async function fetchExchangeRate(): Promise<number | null> {
 }
 
 export function PortfolioDashboard(): JSX.Element {
-  const { state, data, error, priceQuotaExceeded, refetch } = useEnrichedHoldings(SPRINT1_PROVIDER_ID);
+  // No providerId filter — show all providers' holdings in the unified portfolio view
+  const { state, data, error, priceQuotaExceeded, refetch } = useEnrichedHoldings();
   const [expandedSecurityId, setExpandedSecurityId] = useState<string | null>(null);
   const [tickerMappings, setTickerMappings] = useState<ReadonlyMap<string, TickerMappingStatus>>(new Map());
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
@@ -154,7 +155,7 @@ export function PortfolioDashboard(): JSX.Element {
 
       <PositionTable
         positions={data.positions}
-        providerId={SPRINT1_PROVIDER_ID}
+
         expandedSecurityId={expandedSecurityId}
         onSelectPosition={handleSelectPosition}
         onCloseDrillDown={handleCloseDrillDown}

@@ -7,7 +7,6 @@ import tickerStyles from './TickerStatus.module.css';
 
 interface PositionTableProps {
   readonly positions: readonly EnrichedHoldingsPosition[];
-  readonly providerId: string;
   readonly expandedSecurityId: string | null;
   readonly onSelectPosition: (securityId: string) => void;
   readonly onCloseDrillDown: () => void;
@@ -19,7 +18,6 @@ interface PositionTableProps {
 
 export function PositionTable({
   positions,
-  providerId,
   expandedSecurityId,
   onSelectPosition,
   onCloseDrillDown,
@@ -59,7 +57,7 @@ export function PositionTable({
               <PositionRow
                 key={pos.key}
                 position={pos}
-                providerId={providerId}
+                providerId={pos.providerId}
                 isExpanded={isExpanded}
                 onSelect={() => onSelectPosition(pos.securityId)}
                 onClose={onCloseDrillDown}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PsagotCredentials, PsagotPendingSession, PsagotApiError } from '../../../../packages/domain/src/types/psagotApi';
 import type { ApiSyncSummary } from '../../../../packages/domain/src/services/PsagotApiSyncService';
 import type { Account } from '../../../../packages/domain/src/types/account';
-import { domain, SPRINT1_PROVIDER_ID, PSAGOT_API_INTEGRATION_ID } from '../domain/bootstrap';
+import { domain, PSAGOT_PROVIDER_ID, PSAGOT_API_INTEGRATION_ID, psagotSessionStore, priceFetcher } from '../domain/bootstrap';
 import { CredentialsForm } from './CredentialsForm';
 import { OtpModal } from './OtpModal';
 import { SyncProgressStepper, type StepStatus } from './SyncProgressStepper';
@@ -94,7 +94,7 @@ export function ApiSyncCard({ disabled, onAccountsChanged, onClose }: ApiSyncCar
       // Discover accounts
       const apiAccounts = await domain.psagotApiClient.fetchAccounts(session);
       const discovery = await domain.accountService.discoverAccounts({
-        providerId: SPRINT1_PROVIDER_ID,
+        providerId: PSAGOT_PROVIDER_ID,
         apiAccounts,
       });
 
@@ -116,13 +116,22 @@ export function ApiSyncCard({ disabled, onAccountsChanged, onClose }: ApiSyncCar
       // Sync all
       const summary = await domain.psagotApiSyncService.syncAllAccounts({
         accountBalances,
-        providerId: SPRINT1_PROVIDER_ID,
+        providerId: PSAGOT_PROVIDER_ID,
         providerIntegrationId: PSAGOT_API_INTEGRATION_ID,
         securityInfoMap,
       });
 
       // Refresh account list for parent
-      const updatedAccounts = await domain.accountService.listByProvider(SPRINT1_PROVIDER_ID);
+      const updatedAccounts = await domain.accountService.listByProvider(PSAGOT_PROVIDER_ID);
+
+      // Cache session + metadata for price-only fetches
+      psagotSessionStore.setSession(session);
+      psagotSessionStore.setAccountKeys(apiAccounts.map((a) => a.key));
+      psagotSessionStore.setSecurityInfoMap(securityInfoMap);
+
+      // Update provider tickers so FanOutPriceFetcher routes through Psagot
+      const providerEquityNumbers = new Set(allEquityNumbers);
+      priceFetcher.updateKnownTickers('psagot-equity', providerEquityNumbers);
 
       setSyncSummary(summary);
       setAccounts(updatedAccounts);

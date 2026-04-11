@@ -17,12 +17,13 @@ export interface UseEnrichedHoldingsResult {
 // of blanking the net worth display. Only cleared on explicit reset.
 const cachedData = new Map<string, EnrichedHoldingsState>();
 
-export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResult {
+export function useEnrichedHoldings(providerId?: string): UseEnrichedHoldingsResult {
+  const cacheKey = providerId ?? '__all__';
   const [status, setStatus] = useState<EnrichedHoldingsStatus>(() =>
-    cachedData.has(providerId) ? 'ready' : 'loading',
+    cachedData.has(cacheKey) ? 'ready' : 'loading',
   );
   const [data, setData] = useState<EnrichedHoldingsState | null>(
-    () => cachedData.get(providerId) ?? null,
+    () => cachedData.get(cacheKey) ?? null,
   );
   const [error, setError] = useState<string | null>(null);
   const [priceQuotaExceeded, setPriceQuotaExceeded] = useState(false);
@@ -38,7 +39,7 @@ export function useEnrichedHoldings(providerId: string): UseEnrichedHoldingsResu
         .getEnrichedHoldings({ providerId })
         .then((result) => {
           if (reqId !== requestIdRef.current) return;
-          cachedData.set(providerId, result);
+          cachedData.set(cacheKey, result);
           setData(result);
           setPriceQuotaExceeded(result.priceQuotaExceeded === true);
           setStatus('ready');
