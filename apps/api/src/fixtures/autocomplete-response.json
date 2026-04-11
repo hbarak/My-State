@@ -1,0 +1,7 @@
+{
+  "Result": [
+    { "Id": "72703929", "Name": "Lemonade Inc", "Symbol": "LMND", "ItemType": "Stock", "Exchange": "NYSE" },
+    { "Id": "75416503", "Name": "SPDR S&P 500 ETF", "Symbol": "SPY", "ItemType": "ETF", "Exchange": "ARCX" },
+    { "Id": "72179369", "Name": "Invesco QQQ Trust", "Symbol": "QQQ", "ItemType": "ETF", "Exchange": "XNGS" }
+  ]
+}

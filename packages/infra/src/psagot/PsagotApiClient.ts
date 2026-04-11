@@ -14,6 +14,7 @@ const LOGIN_PATH = '/V2/json2/login?catalog=unified';
 const ACCOUNTS_PATH = '/V2/json/accounts?catalog=unified';
 const BALANCES_PATH = '/V2/json2/account/view/balances';
 const SECURITY_INFO_PATH = '/V2/json2/market/table/simple';
+const AUTOCOMPLETE_PATH = '/autoComplete/all/search';
 const SECURITY_INFO_FIELDS = 'HebName,EngName,EngSymbol,Exchange,CurrencyCode,CurrencyDivider,IsForeign,ItemType';
 const MARKET_RATE_FIELDS = 'BaseRate,CurrencyCode,CurrencyDivider,LastKnownRateDate';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -318,6 +319,39 @@ export class PsagotApiClient {
       currencyDivider: typeof sec.CurrencyDivider === 'number' ? sec.CurrencyDivider : 1,
       lastKnownRateDate: typeof sec.LastKnownRateDate === 'string' ? sec.LastKnownRateDate : new Date().toISOString(),
     }));
+  }
+
+  /**
+   * Resolves a ticker symbol (e.g. "LMND") to a Psagot equity number (e.g. "72703929")
+   * using the autoComplete/all/search endpoint.
+   *
+   * Returns the equity number string on an exact symbol match (case-insensitive),
+   * or null if no match is found. Does not throw on 404 or empty results.
+   */
+  async resolveTickerToEquityNumber(
+    session: PsagotAuthorizedSession,
+    symbol: string,
+  ): Promise<string | null> {
+    this.assertValidSession(session);
+
+    const url = `${this.baseUrl}${AUTOCOMPLETE_PATH}/${encodeURIComponent(symbol)}?top=5&catalog=unified`;
+    let response: unknown;
+    try {
+      response = await this.authenticatedGet(url, session);
+    } catch {
+      return null;
+    }
+
+    const body = response as Record<string, unknown>;
+    const results = (body.Result ?? []) as Record<string, unknown>[];
+    if (!Array.isArray(results)) return null;
+
+    const normalised = symbol.toUpperCase();
+    const match = results.find((r) => String(r.Symbol ?? '').toUpperCase() === normalised);
+    if (!match) return null;
+
+    const id = String(match.Id ?? '');
+    return id.length > 0 ? id : null;
   }
 
   private assertValidSession(session: PsagotAuthorizedSession): void {

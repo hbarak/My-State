@@ -9,6 +9,8 @@ export class PsagotSessionStore {
   private session: PsagotAuthorizedSession | null = null;
   private accountKeys: readonly string[] = [];
   private securityInfoMap: ReadonlyMap<string, PsagotSecurityInfo> = new Map();
+  /** Cache of symbol (upper-case) → Psagot equity number, built lazily during price fetches. */
+  private tickerEquityCache: Map<string, string> = new Map();
 
   getSession(): PsagotAuthorizedSession | null {
     return this.session;
@@ -32,6 +34,14 @@ export class PsagotSessionStore {
 
   setSecurityInfoMap(map: ReadonlyMap<string, PsagotSecurityInfo>): void {
     this.securityInfoMap = map;
+  }
+
+  getCachedEquityNumber(symbol: string): string | undefined {
+    return this.tickerEquityCache.get(symbol.toUpperCase());
+  }
+
+  setCachedEquityNumber(symbol: string, equityNumber: string): void {
+    this.tickerEquityCache.set(symbol.toUpperCase(), equityNumber);
   }
 
   clearSession(): void {

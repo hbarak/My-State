@@ -93,6 +93,17 @@ async function mockHandler(
     return;
   }
 
+  // GET /autoComplete/all/search/{query}
+  if (method === 'GET' && url.startsWith('/autoComplete/all/search/')) {
+    const fixture = JSON.parse(loadFixture('autocomplete-response')) as { Result: Record<string, unknown>[] };
+    const query = decodeURIComponent(url.split('/autoComplete/all/search/')[1]?.split('?')[0] ?? '').toLowerCase();
+    const filtered = fixture.Result.filter(
+      (r) => String(r.Symbol ?? '').toLowerCase().includes(query) || String(r.Name ?? '').toLowerCase().includes(query),
+    );
+    sendJson(res, 200, JSON.stringify({ Result: filtered }));
+    return;
+  }
+
   // GET /V2/json2/account/view/balances?account={id}
   if (method === 'GET' && url.startsWith('/V2/json2/account/view/balances')) {
     const accountParam = new URL(url, 'http://localhost').searchParams.get('account') ?? 'default';
