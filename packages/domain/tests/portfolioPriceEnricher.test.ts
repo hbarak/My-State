@@ -268,6 +268,47 @@ describe('PortfolioPriceEnricher', () => {
     expect(p.livePriceAt).toBeDefined();
   });
 
+  it('per-entry fetchedAt: livePriceAt comes from PriceEntry.fetchedAt when present', async () => {
+    const entryFetchedAt = '2026-01-10T09:00:00Z';
+    const positions = [
+      makePosition({ securityId: '1001', totalCost: 5000, quantity: 100 }),
+      makePosition({ securityId: '1002', totalCost: 3000, quantity: 50 }),
+    ];
+    const state = makeHoldingsState(positions);
+
+    // Price service returns entries with per-entry fetchedAt (different timestamps)
+    const customPriceService = {
+      async getPrices(requests: readonly PriceRequest[]): Promise<MarketPriceResult> {
+        const prices = new Map<string, PriceEntry>();
+        for (const req of requests) {
+          if (req.securityId === '1001') {
+            prices.set('1001', { price: 60, currency: 'ILS', fetchedAt: entryFetchedAt });
+          } else {
+            prices.set('1002', { price: 80, currency: 'ILS', fetchedAt: '2026-01-10T08:00:00Z' });
+          }
+        }
+        return { fetchedAt: '2026-01-10T09:30:00Z', prices, errors: [] };
+      },
+    };
+
+    const enricher = new PortfolioPriceEnricher(
+      stubResolver({
+        mappings: {
+          '1001': makeMapping('1001', 'AAA.TA'),
+          '1002': makeMapping('1002', 'BBB.TA'),
+        },
+      }),
+      customPriceService,
+    );
+
+    const { state: result } = await enricher.enrich(state);
+
+    const p1 = result.positions.find((p) => p.securityId === '1001')!;
+    const p2 = result.positions.find((p) => p.securityId === '1002')!;
+    expect(p1.livePriceAt).toBe(entryFetchedAt);
+    expect(p2.livePriceAt).toBe('2026-01-10T08:00:00Z');
+  });
+
   it('handles empty TotalHoldingsState without errors', async () => {
     const state = makeHoldingsState([]);
 

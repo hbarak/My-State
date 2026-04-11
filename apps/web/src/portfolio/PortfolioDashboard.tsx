@@ -1,11 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnrichedHoldings } from '../hooks/useEnrichedHoldings';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { SPRINT1_PROVIDER_ID, domain } from '../domain/bootstrap';
 import { PortfolioSummary } from './PortfolioSummary';
 import { PositionTable } from './PositionTable';
 import { PortfolioActionBar } from './PortfolioActionBar';
 import type { TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
 import styles from './PortfolioDashboard.module.css';
+
+const AUTO_REFRESH_CONFIG_KEY = 'my-stocks:web:auto-refresh-config';
+
+function loadAutoRefreshConfig(): { enabled: boolean; intervalMs: number } {
+  try {
+    const raw = localStorage.getItem(AUTO_REFRESH_CONFIG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        typeof (parsed as Record<string, unknown>).enabled === 'boolean' &&
+        typeof (parsed as Record<string, unknown>).intervalMs === 'number'
+      ) {
+        return parsed as { enabled: boolean; intervalMs: number };
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return { enabled: false, intervalMs: 300_000 };
+}
 
 async function fetchExchangeRate(): Promise<number | null> {
   try {
@@ -31,6 +54,26 @@ export function PortfolioDashboard(): JSX.Element {
   const [tickerMappings, setTickerMappings] = useState<ReadonlyMap<string, TickerMappingStatus>>(new Map());
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const fetchVersion = useRef(0);
+
+  const [autoRefreshConfig, setAutoRefreshConfig] = useState(loadAutoRefreshConfig);
+  const { isActive: autoRefreshActive } = useAutoRefresh({
+    enabled: autoRefreshConfig.enabled,
+    intervalMs: autoRefreshConfig.intervalMs,
+    quotaExhausted: priceQuotaExceeded,
+    onRefresh: refetch,
+  });
+
+  const handleAutoRefreshToggle = (enabled: boolean): void => {
+    const next = { ...autoRefreshConfig, enabled };
+    setAutoRefreshConfig(next);
+    localStorage.setItem(AUTO_REFRESH_CONFIG_KEY, JSON.stringify(next));
+  };
+
+  const handleIntervalChange = (intervalMs: number): void => {
+    const next = { ...autoRefreshConfig, intervalMs };
+    setAutoRefreshConfig(next);
+    localStorage.setItem(AUTO_REFRESH_CONFIG_KEY, JSON.stringify(next));
+  };
 
   const loadTickerMappings = useCallback(async (): Promise<void> => {
     const version = ++fetchVersion.current;
@@ -100,6 +143,11 @@ export function PortfolioDashboard(): JSX.Element {
         onRefresh={refetch}
         onPortfolioChanged={refetch}
         priceQuotaExceeded={priceQuotaExceeded}
+        autoRefreshEnabled={autoRefreshConfig.enabled}
+        onAutoRefreshToggle={handleAutoRefreshToggle}
+        autoRefreshIntervalMs={autoRefreshConfig.intervalMs}
+        onIntervalChange={handleIntervalChange}
+        autoRefreshActive={autoRefreshActive}
       />
 
       <PortfolioSummary enrichedState={data} exchangeRate={exchangeRate} />

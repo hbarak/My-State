@@ -18,6 +18,8 @@ export interface PriceRequest {
 export interface PriceEntry {
   readonly price: number;
   readonly currency: string;
+  /** ISO timestamp of when this price was fetched. Undefined for backward-compat (stale cache entries). */
+  readonly fetchedAt?: string;
 }
 
 export interface PriceError {
@@ -112,6 +114,7 @@ export class MarketPriceService {
           prices.set(securityId, {
             price: result.price,
             currency: result.currency ?? 'USD',
+            fetchedAt,
           });
         }
       }

@@ -173,7 +173,7 @@ function enrichPosition(
     currentPrice = liveEntry.price;
     livePrice = liveEntry.price;
     livePriceCurrency = liveEntry.currency;
-    livePriceAt = fetchedAt;
+    livePriceAt = liveEntry.fetchedAt ?? fetchedAt;
   } else if (staleEntry && staleEntry !== liveEntry) {
     priceSource = 'stale';
     currentPrice = staleEntry.price;

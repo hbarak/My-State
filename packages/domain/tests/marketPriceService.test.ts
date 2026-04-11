@@ -45,7 +45,7 @@ describe('MarketPriceService', () => {
       { securityId: '1084128', ticker: 'DELEK.TA' },
     ]);
 
-    expect(result.prices.get('1084128')).toEqual({ price: 120, currency: 'ILS' });
+    expect(result.prices.get('1084128')).toEqual(expect.objectContaining({ price: 120, currency: 'ILS' }));
     expect(result.errors).toHaveLength(0);
   });
 
@@ -61,8 +61,8 @@ describe('MarketPriceService', () => {
       { securityId: '5554321', ticker: 'TEVA.TA' },
     ]);
 
-    expect(result.prices.get('1084128')).toEqual({ price: 120, currency: 'ILS' });
-    expect(result.prices.get('5554321')).toEqual({ price: 55, currency: 'USD' });
+    expect(result.prices.get('1084128')).toEqual(expect.objectContaining({ price: 120, currency: 'ILS' }));
+    expect(result.prices.get('5554321')).toEqual(expect.objectContaining({ price: 55, currency: 'USD' }));
     expect(result.errors).toHaveLength(0);
   });
 
@@ -78,7 +78,7 @@ describe('MarketPriceService', () => {
       { securityId: '9999', ticker: 'UNKNOWN.TA' },
     ]);
 
-    expect(result.prices.get('1084128')).toEqual({ price: 120, currency: 'ILS' });
+    expect(result.prices.get('1084128')).toEqual(expect.objectContaining({ price: 120, currency: 'ILS' }));
     expect(result.prices.has('9999')).toBe(false);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toEqual({
@@ -118,8 +118,8 @@ describe('MarketPriceService', () => {
     ]);
 
     expect(fetchedTickers).toHaveLength(1);
-    expect(result.prices.get('sec-1')).toEqual({ price: 120, currency: 'ILS' });
-    expect(result.prices.get('sec-2')).toEqual({ price: 120, currency: 'ILS' });
+    expect(result.prices.get('sec-1')).toEqual(expect.objectContaining({ price: 120, currency: 'ILS' }));
+    expect(result.prices.get('sec-2')).toEqual(expect.objectContaining({ price: 120, currency: 'ILS' }));
   });
 
   it('handles fetcher returning fewer results than requested', async () => {
@@ -131,7 +131,7 @@ describe('MarketPriceService', () => {
       { securityId: '9999', ticker: 'MISSING.TA' },
     ]);
 
-    expect(result.prices.get('1084128')).toEqual({ price: 120, currency: 'ILS' });
+    expect(result.prices.get('1084128')).toEqual(expect.objectContaining({ price: 120, currency: 'ILS' }));
     expect(result.prices.has('9999')).toBe(false);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].securityId).toBe('9999');
@@ -147,6 +147,21 @@ describe('MarketPriceService', () => {
 
     expect(result.fetchedAt >= before).toBe(true);
     expect(result.fetchedAt <= after).toBe(true);
+  });
+
+  it('each PriceEntry carries fetchedAt matching the batch timestamp', async () => {
+    const fetcher = stubFetcher([successResult('DELEK.TA', 120)]);
+    const service = new MarketPriceService(fetcher);
+
+    const before = new Date().toISOString();
+    const result = await service.getPrices([{ securityId: '1084128', ticker: 'DELEK.TA' }]);
+    const after = new Date().toISOString();
+
+    const entry = result.prices.get('1084128')!;
+    expect(entry.fetchedAt).toBeDefined();
+    expect(entry.fetchedAt! >= before).toBe(true);
+    expect(entry.fetchedAt! <= after).toBe(true);
+    expect(entry.fetchedAt).toBe(result.fetchedAt);
   });
 
   it('carries currency through from fetcher results', async () => {
@@ -181,7 +196,7 @@ describe('MarketPriceService', () => {
 
     expect(result.prices.has('zero-sec')).toBe(false);
     expect(result.prices.has('neg-sec')).toBe(false);
-    expect(result.prices.get('valid-sec')).toEqual({ price: 50, currency: 'ILS' });
+    expect(result.prices.get('valid-sec')).toEqual(expect.objectContaining({ price: 50, currency: 'ILS' }));
     expect(result.errors).toHaveLength(2);
     expect(result.errors.find((e) => e.securityId === 'zero-sec')!.reason).toContain('invalid_price');
     expect(result.errors.find((e) => e.securityId === 'neg-sec')!.reason).toContain('invalid_price');
