@@ -2,3 +2,4 @@ export { BrowserLocalStorageJsonStore } from './stores/BrowserLocalStorageJsonSt
 export { PsagotApiClient } from './psagot/PsagotApiClient';
 export { SupabasePortfolioRepository } from './supabase/SupabasePortfolioRepository';
 export { IBApiClient } from './ib/IBApiClient';
+export { ClientAMApiClient } from './clientam/ClientAMApiClient';

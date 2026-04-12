@@ -23,7 +23,7 @@ import {
   CSV_PROVIDER_CAPABILITIES,
 } from '@my-stocks/domain';
 import type { HttpPort, PortfolioRepository } from '@my-stocks/domain';
-import { BrowserLocalStorageJsonStore, PsagotApiClient, IBApiClient, SupabasePortfolioRepository } from '@my-stocks/infra';
+import { BrowserLocalStorageJsonStore, PsagotApiClient, IBApiClient, ClientAMApiClient, SupabasePortfolioRepository } from '@my-stocks/infra';
 import { EodhdPriceFetcher } from '../adapters/EodhdPriceFetcher';
 import { EodhdTickerSearcher } from '../adapters/EodhdTickerSearcher';
 import { MayaPriceFetcher } from '../adapters/MayaPriceFetcher';
@@ -79,6 +79,30 @@ export const ibSessionStore = new IBSessionStore();
 const ibPriceFetcher = new IBPriceFetcher(ibApiClient, ibSessionStore);
 export const ibApiImportHandler = new IBApiImportHandler();
 export const ibApiSyncService = new IBApiSyncService(repository, accountService, ibApiImportHandler);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ClientAM (IB Israel) — accesses same IB API via SSO cookies from clientam.com
+// Shares ibSessionStore, ibApiSyncService, and price routing with the gateway path.
+// ─────────────────────────────────────────────────────────────────────────────
+
+let clientamCookies: string | undefined;
+
+/** Set the ClientAM session cookies (pasted from browser devtools). */
+export function setClientAMCookies(cookies: string): void {
+  clientamCookies = cookies;
+}
+
+const clientamHttpAdapter: HttpPort = {
+  async request(req) {
+    const headers: Record<string, string> = { ...req.headers };
+    if (clientamCookies) {
+      headers['X-ClientAM-Cookies'] = clientamCookies;
+    }
+    return fetchHttpAdapter.request({ ...req, headers });
+  },
+};
+
+export const clientamApiClient = new ClientAMApiClient(clientamHttpAdapter, '/api/clientam');
 
 const eodhdFetcher = new EodhdPriceFetcher();
 const mayaFetcher = new MayaPriceFetcher();
@@ -138,6 +162,7 @@ export const domain = {
   psagotApiSyncService,
   ibApiClient,
   ibApiSyncService,
+  clientamApiClient,
   tickerResolver,
   getProvenanceForSecurity: (securityId: string) => repository.getProvenanceForSecurity(securityId),
   deleteImportRunContribution: (runId: string) => repository.deleteImportRunContribution(runId),

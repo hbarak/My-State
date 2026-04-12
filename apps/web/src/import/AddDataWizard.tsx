@@ -3,9 +3,10 @@ import type { Account } from '../../../../packages/domain/src/types/account';
 import { AccountSelector } from './AccountSelector';
 import { ApiSyncCard } from './ApiSyncCard';
 import { IBSyncCard } from './IBSyncCard';
+import { ClientAMSyncCard } from './ClientAMSyncCard';
 import styles from './AddDataWizard.module.css';
 
-type Source = 'csv' | 'api' | 'ib';
+type Source = 'csv' | 'api' | 'ib' | 'clientam';
 
 interface AddDataWizardProps {
   // Account state
@@ -157,6 +158,16 @@ export function AddDataWizard({
               <span className={styles.sourceLabel}>Interactive Brokers</span>
               <span className={styles.sourceDesc}>Sync via IB Client Portal Gateway</span>
             </button>
+            <button
+              type="button"
+              className={styles.sourceCard}
+              onClick={() => handleChooseSource('clientam')}
+              disabled={disabled}
+            >
+              <span className={styles.sourceIcon} aria-hidden="true">🇮🇱</span>
+              <span className={styles.sourceLabel}>ClientAM (IB Israel)</span>
+              <span className={styles.sourceDesc}>Sync via ClientAM portal cookies</span>
+            </button>
           </div>
         </div>
       )}
@@ -225,6 +236,16 @@ export function AddDataWizard({
       {currentStep === 'configure' && source === 'ib' && (
         <div className={styles.step}>
           <IBSyncCard disabled={isBusy} onAccountsChanged={onAccountsChanged} />
+          <button type="button" className={styles.backLink} onClick={handleStartOver}>
+            ← Back
+          </button>
+        </div>
+      )}
+
+      {/* Step 2 ClientAM: ClientAMSyncCard */}
+      {currentStep === 'configure' && source === 'clientam' && (
+        <div className={styles.step}>
+          <ClientAMSyncCard disabled={isBusy} onAccountsChanged={onAccountsChanged} />
           <button type="button" className={styles.backLink} onClick={handleStartOver}>
             ← Back
           </button>
@@ -345,7 +366,7 @@ export function AddDataWizard({
 function StepIndicator({ currentStep, source }: { currentStep: WizardStep; source: Source | null }): JSX.Element {
   const steps: { key: WizardStep; label: string }[] = [
     { key: 'choose', label: 'Source' },
-    { key: 'configure', label: source === 'api' || source === 'ib' ? 'Sync' : 'Upload' },
+    { key: 'configure', label: source === 'api' || source === 'ib' || source === 'clientam' ? 'Sync' : 'Upload' },
     { key: 'preview', label: 'Preview' },
     { key: 'done', label: 'Done' },
   ];

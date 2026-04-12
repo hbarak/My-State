@@ -8,6 +8,7 @@ import { psagotProxyPlugin } from '../api/src/plugins/psagot-proxy-plugin';
 import { psagotMockPlugin } from '../api/src/plugins/psagot-mock-plugin';
 import { ibProxyPlugin } from '../api/src/plugins/ib-proxy-plugin';
 import { ibMockPlugin } from '../api/src/plugins/ib-mock-plugin';
+import { clientamProxyPlugin } from '../api/src/plugins/clientam-proxy-plugin';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const useMockApi = process.env.VITE_MOCK_API === 'true';
@@ -19,6 +20,7 @@ export default defineConfig({
     boiRatePlugin(),
     useMockApi ? psagotMockPlugin() : psagotProxyPlugin(),
     useMockApi ? ibMockPlugin() : ibProxyPlugin(),
+    clientamProxyPlugin(),
   ],
   resolve: {
     alias: {
