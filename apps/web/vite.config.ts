@@ -6,12 +6,20 @@ import { pricePlugin } from '../api/src/plugins/price-plugin';
 import { boiRatePlugin } from '../api/src/plugins/boi-rate-plugin';
 import { psagotProxyPlugin } from '../api/src/plugins/psagot-proxy-plugin';
 import { psagotMockPlugin } from '../api/src/plugins/psagot-mock-plugin';
+import { ibProxyPlugin } from '../api/src/plugins/ib-proxy-plugin';
+import { ibMockPlugin } from '../api/src/plugins/ib-mock-plugin';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const useMockApi = process.env.VITE_MOCK_API === 'true';
 
 export default defineConfig({
-  plugins: [react(), pricePlugin(), boiRatePlugin(), useMockApi ? psagotMockPlugin() : psagotProxyPlugin()],
+  plugins: [
+    react(),
+    pricePlugin(),
+    boiRatePlugin(),
+    useMockApi ? psagotMockPlugin() : psagotProxyPlugin(),
+    useMockApi ? ibMockPlugin() : ibProxyPlugin(),
+  ],
   resolve: {
     alias: {
       '@my-stocks/domain': resolve(root, 'packages/domain/src/index.ts'),

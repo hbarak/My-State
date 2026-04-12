@@ -1,0 +1,50 @@
+[
+  {
+    "acctId": "U10807583",
+    "conid": 265598,
+    "contractDesc": "AAPL (NASDAQ)",
+    "position": 50,
+    "mktPrice": 182.5,
+    "mktValue": 9125.0,
+    "avgCost": 150.0,
+    "avgPrice": 150.0,
+    "unrealizedPnl": 1625.0,
+    "currency": "USD",
+    "assetClass": "STK",
+    "ticker": "AAPL",
+    "fullName": "APPLE INC",
+    "listingExchange": "NASDAQ"
+  },
+  {
+    "acctId": "U10807583",
+    "conid": 272093,
+    "contractDesc": "GOOGL (NASDAQ)",
+    "position": 10,
+    "mktPrice": 165.0,
+    "mktValue": 1650.0,
+    "avgCost": 140.0,
+    "avgPrice": 140.0,
+    "unrealizedPnl": 250.0,
+    "currency": "USD",
+    "assetClass": "STK",
+    "ticker": "GOOGL",
+    "fullName": "ALPHABET INC-CL A",
+    "listingExchange": "NASDAQ"
+  },
+  {
+    "acctId": "U10807583",
+    "conid": 756733,
+    "contractDesc": "MSFT (NASDAQ)",
+    "position": 25,
+    "mktPrice": 420.0,
+    "mktValue": 10500.0,
+    "avgCost": 380.0,
+    "avgPrice": 380.0,
+    "unrealizedPnl": 1000.0,
+    "currency": "USD",
+    "assetClass": "STK",
+    "ticker": "MSFT",
+    "fullName": "MICROSOFT CORP",
+    "listingExchange": "NASDAQ"
+  }
+]

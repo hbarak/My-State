@@ -5,7 +5,9 @@ import {
   DATASOURCE_PSAGOT,
   DATASOURCE_EODHD,
   DATASOURCE_MAYA,
+  DATASOURCE_IB,
   PSAGOT_PROVIDER_CAPABILITIES,
+  IB_PROVIDER_CAPABILITIES,
   CSV_PROVIDER_CAPABILITIES,
 } from '../src/data/dataSourceCatalog';
 
@@ -15,11 +17,12 @@ import {
 
 describe('DataSource Catalog', () => {
   it('contains all registered sources', () => {
-    expect(DATA_SOURCE_CATALOG).toHaveLength(3);
+    expect(DATA_SOURCE_CATALOG).toHaveLength(4);
     const ids = DATA_SOURCE_CATALOG.map((s) => s.id);
     expect(ids).toContain(DATASOURCE_PSAGOT.id);
     expect(ids).toContain(DATASOURCE_EODHD.id);
     expect(ids).toContain(DATASOURCE_MAYA.id);
+    expect(ids).toContain(DATASOURCE_IB.id);
   });
 
   it('has unique IDs across all sources', () => {
@@ -44,9 +47,17 @@ describe('DataSource Catalog', () => {
     }
   });
 
-  it('standalone sources do not have a providerId', () => {
+  it('sources linked to a provider have a providerId', () => {
     for (const source of DATA_SOURCE_CATALOG) {
-      if (source.authMethod !== 'provider_session') {
+      if (source.authMethod === 'provider_session' || source.authMethod === 'gateway') {
+        expect(source.providerId).toBeTruthy();
+      }
+    }
+  });
+
+  it('standalone sources (api_key, none) do not have a providerId', () => {
+    for (const source of DATA_SOURCE_CATALOG) {
+      if (source.authMethod === 'api_key' || source.authMethod === 'none') {
         expect(source.providerId).toBeUndefined();
       }
     }
@@ -129,6 +140,28 @@ describe('Maya DataSource', () => {
   });
 });
 
+describe('IB DataSource', () => {
+  it('is an own-holdings price source backed by local gateway', () => {
+    expect(DATASOURCE_IB.capabilities).toContain('price_fetch');
+    expect(DATASOURCE_IB.priceCoverage).toBe('own_holdings');
+    expect(DATASOURCE_IB.authMethod).toBe('gateway');
+    expect(DATASOURCE_IB.providerId).toBeTruthy();
+  });
+
+  it('uses conid as security ID scheme', () => {
+    expect(DATASOURCE_IB.securityIdScheme).toBe('conid');
+  });
+
+  it('has priority between Psagot and Maya', () => {
+    expect(DATASOURCE_IB.pricePriority!).toBeGreaterThan(DATASOURCE_PSAGOT.pricePriority!);
+    expect(DATASOURCE_IB.pricePriority!).toBeLessThan(DATASOURCE_MAYA.pricePriority!);
+  });
+
+  it('provides security_metadata (contract descriptions from gateway)', () => {
+    expect(DATASOURCE_IB.capabilities).toContain('security_metadata');
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider capability declarations
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,5 +183,14 @@ describe('Provider capability declarations', () => {
 
   it('CSV provider does not claim account_discovery (passive import)', () => {
     expect(CSV_PROVIDER_CAPABILITIES).not.toContain('account_discovery');
+  });
+
+  it('IB provider can import holdings and discover accounts', () => {
+    expect(IB_PROVIDER_CAPABILITIES).toContain('holdings_import');
+    expect(IB_PROVIDER_CAPABILITIES).toContain('account_discovery');
+  });
+
+  it('IB provider does not claim trade_import (not yet supported)', () => {
+    expect(IB_PROVIDER_CAPABILITIES).not.toContain('trade_import');
   });
 });

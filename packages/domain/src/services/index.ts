@@ -12,5 +12,7 @@ export * from './TickerResolverService';
 export * from './PortfolioPriceEnricher';
 export * from './PsagotApiImportHandler';
 export * from './PsagotApiSyncService';
+export * from './IBApiImportHandler';
+export * from './IBApiSyncService';
 export * from './MarketHoursService';
 export * from './PriceFreshnessClassifier';

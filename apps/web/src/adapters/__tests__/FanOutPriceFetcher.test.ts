@@ -211,3 +211,87 @@ describe('FanOutPriceFetcher — with provider routes', () => {
     expect(results.find((r) => r.ticker === 'AAPL')).toMatchObject({ status: 'success', price: 205 });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('FanOutPriceFetcher — with IB route', () => {
+  function makeRoutesWithIb(
+    ib: PriceFetcher,
+    maya: PriceFetcher,
+    provider?: PriceFetcher,
+  ): PriceFetcherRoute[] {
+    const routes: PriceFetcherRoute[] = [
+      {
+        name: 'ib',
+        canHandle: () => false, // relies entirely on updateKnownTickers
+        fetcher: ib,
+        exclusive: true,
+      },
+      {
+        name: 'maya',
+        canHandle: isTaseNumericId,
+        fetcher: maya,
+        exclusive: true,
+      },
+    ];
+    if (provider) {
+      routes.unshift({
+        name: 'provider-equity',
+        canHandle: () => false,
+        fetcher: provider,
+        exclusive: true,
+      });
+    }
+    return routes;
+  }
+
+  it('routes IB conids exclusively to IB fetcher', async () => {
+    const eodhd = stubFetcher([{ ticker: 'AAPL', status: 'success', price: 180, currency: 'USD' }]);
+    const maya = stubFetcher([]);
+    const ib = stubFetcher([
+      { ticker: '265598', status: 'success', price: 182.5, currency: 'USD' },
+    ]);
+    const fanOut = new FanOutPriceFetcher(makeRoutesWithIb(ib, maya), eodhd);
+    fanOut.updateKnownTickers('ib', new Set(['265598']));
+
+    const results = await fanOut.fetchPrices(['265598', 'AAPL']);
+
+    expect(results.find((r) => r.ticker === '265598')).toMatchObject({ status: 'success', price: 182.5 });
+    expect(results.find((r) => r.ticker === 'AAPL')).toMatchObject({ status: 'success', price: 180 });
+    expect(ib.calls).toHaveLength(1);
+    expect(ib.calls[0]).toEqual(['265598']);
+    expect(eodhd.calls.some((c) => c.includes('265598'))).toBe(false);
+  });
+
+  it('falls back to EODHD when IB returns error for a conid', async () => {
+    const eodhd = stubFetcher([{ ticker: '265598', status: 'success', price: 180, currency: 'USD' }]);
+    const maya = stubFetcher([]);
+    const ib = stubFetcher([{ ticker: '265598', status: 'error', error: 'session_expired' }]);
+    const fanOut = new FanOutPriceFetcher(makeRoutesWithIb(ib, maya), eodhd);
+    fanOut.updateKnownTickers('ib', new Set(['265598']));
+
+    const results = await fanOut.fetchPrices(['265598']);
+
+    expect(results[0]).toMatchObject({ ticker: '265598', status: 'success', price: 180 });
+  });
+
+  it('IB conids do not collide with Maya TASE IDs — both route correctly', async () => {
+    const eodhd = stubFetcher([]);
+    const maya = stubFetcher([
+      { ticker: '1183441', status: 'success', price: 17.34, currency: 'ILS' },
+    ]);
+    const ib = stubFetcher([
+      { ticker: '265598', status: 'success', price: 182.5, currency: 'USD' },
+    ]);
+    const fanOut = new FanOutPriceFetcher(makeRoutesWithIb(ib, maya), eodhd);
+    // IB owns '265598'; Maya owns '1183441' by canHandle (all-digit)
+    fanOut.updateKnownTickers('ib', new Set(['265598']));
+
+    const results = await fanOut.fetchPrices(['265598', '1183441']);
+
+    expect(results.find((r) => r.ticker === '265598')).toMatchObject({ status: 'success', price: 182.5 });
+    expect(results.find((r) => r.ticker === '1183441')).toMatchObject({ status: 'success', price: 17.34 });
+    // IB should not have been asked about the TASE fund
+    expect(ib.calls.flat()).not.toContain('1183441');
+  });
+});

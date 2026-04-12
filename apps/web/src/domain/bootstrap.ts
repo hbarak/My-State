@@ -11,21 +11,27 @@ import {
   ImportRunQueryService,
   PsagotApiImportHandler,
   PsagotApiSyncService,
+  IBApiImportHandler,
+  IBApiSyncService,
   TelemetryService,
   ConsoleTelemetrySink,
   IsraeliSecurityLookupImpl,
   PSAGOT_PROVIDER_ID,
   PSAGOT_PROVIDER_CAPABILITIES,
+  IB_PROVIDER_ID,
+  IB_PROVIDER_CAPABILITIES,
   CSV_PROVIDER_CAPABILITIES,
 } from '@my-stocks/domain';
 import type { HttpPort, PortfolioRepository } from '@my-stocks/domain';
-import { BrowserLocalStorageJsonStore, PsagotApiClient, SupabasePortfolioRepository } from '@my-stocks/infra';
+import { BrowserLocalStorageJsonStore, PsagotApiClient, IBApiClient, SupabasePortfolioRepository } from '@my-stocks/infra';
 import { EodhdPriceFetcher } from '../adapters/EodhdPriceFetcher';
 import { EodhdTickerSearcher } from '../adapters/EodhdTickerSearcher';
 import { MayaPriceFetcher } from '../adapters/MayaPriceFetcher';
 import { FanOutPriceFetcher, isTaseNumericId } from '../adapters/FanOutPriceFetcher';
 import { PsagotSessionStore } from '../adapters/PsagotSessionStore';
 import { PsagotPriceFetcher } from '../adapters/PsagotPriceFetcher';
+import { IBSessionStore } from '../adapters/IBSessionStore';
+import { IBPriceFetcher } from '../adapters/IBPriceFetcher';
 import { supabase } from '../lib/supabaseClient';
 
 export const isMockMode = import.meta.env.VITE_MOCK_API === 'true';
@@ -68,20 +74,32 @@ const psagotApiSyncService = new PsagotApiSyncService(repository, accountService
 export const psagotSessionStore = new PsagotSessionStore();
 const psagotPriceFetcher = new PsagotPriceFetcher(psagotApiClient, psagotSessionStore);
 
+export const ibApiClient = new IBApiClient(fetchHttpAdapter, '/api/ib');
+export const ibSessionStore = new IBSessionStore();
+const ibPriceFetcher = new IBPriceFetcher(ibApiClient, ibSessionStore);
+export const ibApiImportHandler = new IBApiImportHandler();
+export const ibApiSyncService = new IBApiSyncService(repository, accountService, ibApiImportHandler);
+
 const eodhdFetcher = new EodhdPriceFetcher();
 const mayaFetcher = new MayaPriceFetcher();
 
-// Route-based price fetcher:
-//   1. Psagot equity numbers (known from last sync) — exclusive, direct fetchMarketRates
-//   2. TASE all-digit IDs (not in Psagot set) — exclusive, Maya API
-//   3. Symbol tickers — non-exclusive: Psagot (via autoComplete) + EODHD in parallel
+// Route-based price fetcher (priority order):
+//   1. IB conids (known from last IB sync)    — exclusive, IB market data snapshot
+//   2. Psagot equity numbers (from last sync) — exclusive, direct fetchMarketRates
+//   3. TASE all-digit IDs                     — exclusive, Maya API
+//   4. Symbol tickers                         — non-exclusive: Psagot + EODHD in parallel
 // EODHD is the fallback for anything not exclusively claimed or when routes fail.
 export const priceFetcher = new FanOutPriceFetcher(
   [
     {
-      name: 'psagot-equity',
+      name: 'ib',
       // canHandle returns false by default; updateKnownTickers() populates the set
-      // routeCanHandle() in FanOutPriceFetcher checks knownTickers first
+      canHandle: () => false,
+      fetcher: ibPriceFetcher,
+      exclusive: true,
+    },
+    {
+      name: 'psagot-equity',
       canHandle: () => false,
       fetcher: psagotPriceFetcher,
       exclusive: true,
@@ -118,6 +136,8 @@ export const domain = {
   accountService,
   psagotApiClient,
   psagotApiSyncService,
+  ibApiClient,
+  ibApiSyncService,
   tickerResolver,
   getProvenanceForSecurity: (securityId: string) => repository.getProvenanceForSecurity(securityId),
   deleteImportRunContribution: (runId: string) => repository.deleteImportRunContribution(runId),
@@ -128,8 +148,8 @@ export const domain = {
 // Provider / integration constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Re-export PSAGOT_PROVIDER_ID from domain catalog so callers use the canonical constant
-export { PSAGOT_PROVIDER_ID };
+// Re-export provider IDs from domain catalog so callers use the canonical constants
+export { PSAGOT_PROVIDER_ID, IB_PROVIDER_ID };
 
 /** CSV-only demo provider (trades + holdings CSV imports) */
 export const CSV_PROVIDER_ID = 'provider-csv-demo';
@@ -138,6 +158,7 @@ export const CSV_HOLDINGS_INTEGRATION_ID = 'integration-csv-demo-holdings';
 
 export const PSAGOT_API_INTEGRATION_ID = 'psagot-api-holdings';
 export const PSAGOT_CSV_INTEGRATION_ID = 'psagot-csv-holdings';
+export const IB_API_INTEGRATION_ID = 'ib-api-holdings';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Seed: CSV demo provider
@@ -300,6 +321,46 @@ export async function ensurePsagotProviderSetup(): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Seed: Interactive Brokers provider
+// Accessed via local IB Client Portal Gateway (Docker or JAR).
+// User authenticates via gateway browser UI — no in-app login.
+// Linked to the IB DataSource (same gateway session).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function ensureIbProviderSetup(): Promise<void> {
+  const providers = await repository.getProviders();
+  if (providers.some((p) => p.id === IB_PROVIDER_ID)) return;
+
+  const now = nowIso();
+
+  await repository.upsertProvider({
+    id: IB_PROVIDER_ID,
+    name: 'Interactive Brokers',
+    status: 'active',
+    capabilities: IB_PROVIDER_CAPABILITIES,
+    authMethod: 'gateway',
+    linkedDataSourceId: 'datasource-ib',
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await repository.upsertIntegration({
+    id: IB_API_INTEGRATION_ID,
+    providerId: IB_PROVIDER_ID,
+    kind: 'api',
+    dataDomain: 'holdings',
+    communicationMethod: 'api_pull',
+    syncMode: 'manual',
+    direction: 'ingest',
+    adapterKey: 'ib-cp-gateway-v1',
+    isEnabled: true,
+    notes: 'IB Client Portal Gateway REST API — manual sync after gateway login',
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Legacy shim — preserves backward-compat for any code still referencing
 // SPRINT1_PROVIDER_ID. Points to the CSV provider which replaces it.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -318,6 +379,7 @@ export const SPRINT1_HOLDINGS_INTEGRATION_ID = CSV_HOLDINGS_INTEGRATION_ID;
 export async function ensureSprintOnePreviewSetup(): Promise<void> {
   await ensureCsvProviderSetup();
   await ensurePsagotProviderSetup();
+  await ensureIbProviderSetup();
 }
 
 function nowIso(): string {

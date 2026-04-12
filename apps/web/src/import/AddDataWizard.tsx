@@ -2,9 +2,10 @@ import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 import type { Account } from '../../../../packages/domain/src/types/account';
 import { AccountSelector } from './AccountSelector';
 import { ApiSyncCard } from './ApiSyncCard';
+import { IBSyncCard } from './IBSyncCard';
 import styles from './AddDataWizard.module.css';
 
-type Source = 'csv' | 'api';
+type Source = 'csv' | 'api' | 'ib';
 
 interface AddDataWizardProps {
   // Account state
@@ -143,8 +144,18 @@ export function AddDataWizard({
               disabled={disabled}
             >
               <span className={styles.sourceIcon} aria-hidden="true">🔄</span>
-              <span className={styles.sourceLabel}>API Sync</span>
+              <span className={styles.sourceLabel}>Psagot API</span>
               <span className={styles.sourceDesc}>Live sync via Psagot API (OTP required)</span>
+            </button>
+            <button
+              type="button"
+              className={styles.sourceCard}
+              onClick={() => handleChooseSource('ib')}
+              disabled={disabled}
+            >
+              <span className={styles.sourceIcon} aria-hidden="true">🏦</span>
+              <span className={styles.sourceLabel}>Interactive Brokers</span>
+              <span className={styles.sourceDesc}>Sync via IB Client Portal Gateway</span>
             </button>
           </div>
         </div>
@@ -199,11 +210,21 @@ export function AddDataWizard({
         </div>
       )}
 
-      {/* Step 2 API: ApiSyncCard */}
+      {/* Step 2 API: ApiSyncCard (Psagot) */}
       {currentStep === 'configure' && source === 'api' && (
         <div className={styles.step}>
-          <h2 className={styles.stepTitle}>API Sync</h2>
+          <h2 className={styles.stepTitle}>Psagot API Sync</h2>
           <ApiSyncCard disabled={isBusy} onAccountsChanged={onAccountsChanged} />
+          <button type="button" className={styles.backLink} onClick={handleStartOver}>
+            ← Back
+          </button>
+        </div>
+      )}
+
+      {/* Step 2 IB: IBSyncCard */}
+      {currentStep === 'configure' && source === 'ib' && (
+        <div className={styles.step}>
+          <IBSyncCard disabled={isBusy} onAccountsChanged={onAccountsChanged} />
           <button type="button" className={styles.backLink} onClick={handleStartOver}>
             ← Back
           </button>
@@ -324,7 +345,7 @@ export function AddDataWizard({
 function StepIndicator({ currentStep, source }: { currentStep: WizardStep; source: Source | null }): JSX.Element {
   const steps: { key: WizardStep; label: string }[] = [
     { key: 'choose', label: 'Source' },
-    { key: 'configure', label: source === 'api' ? 'Sync' : 'Upload' },
+    { key: 'configure', label: source === 'api' || source === 'ib' ? 'Sync' : 'Upload' },
     { key: 'preview', label: 'Preview' },
     { key: 'done', label: 'Done' },
   ];

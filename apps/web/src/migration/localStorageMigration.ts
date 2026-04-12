@@ -89,7 +89,7 @@ function providerToRow(p: Provider, userId: string) {
 }
 
 function accountToRow(a: Account, userId: string) {
-  return { id: a.id, user_id: userId, provider_id: a.providerId, name: a.name, is_name_customized: a.isNameCustomized ?? null, created_at: a.createdAt, updated_at: a.updatedAt };
+  return { id: a.id, user_id: userId, provider_id: a.providerId, name: a.name, is_name_customized: a.isNameCustomized ?? false, created_at: a.createdAt, updated_at: a.updatedAt };
 }
 
 function integrationToRow(i: ProviderIntegration, userId: string) {

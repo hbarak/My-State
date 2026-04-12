@@ -227,7 +227,7 @@ function accountToRow(a: Account, userId: string): AccountRow {
     user_id: userId,
     provider_id: a.providerId,
     name: a.name,
-    is_name_customized: a.isNameCustomized ?? null,
+    is_name_customized: a.isNameCustomized ?? false,
     created_at: a.createdAt,
     updated_at: a.updatedAt,
   };

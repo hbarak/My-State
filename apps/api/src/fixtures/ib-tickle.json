@@ -1,0 +1,13 @@
+{
+  "session": "mock-session-abc123",
+  "ssoExpires": 9999999999000,
+  "collission": false,
+  "userId": 99999999,
+  "iserver": {
+    "authStatus": {
+      "authenticated": true,
+      "competing": false,
+      "connected": true
+    }
+  }
+}

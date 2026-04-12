@@ -9,3 +9,4 @@ export * from './portfolio';
 export * from './financialState';
 export * from './marketPrice';
 export * from './psagotApi';
+export * from './ibApi';

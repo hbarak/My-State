@@ -33,12 +33,14 @@ const now = '2026-04-11T00:00:00.000Z';
 // ── Provider IDs (re-declared here for linking) ─────────────────────────────
 
 export const PSAGOT_PROVIDER_ID = 'provider-psagot';
+export const IB_PROVIDER_ID = 'provider-ib';
 
 // ── Data Source IDs ─────────────────────────────────────────────────────────
 
 export const DATASOURCE_PSAGOT_ID = 'datasource-psagot';
 export const DATASOURCE_EODHD_ID = 'datasource-eodhd';
 export const DATASOURCE_MAYA_ID = 'datasource-maya';
+export const DATASOURCE_IB_ID = 'datasource-ib';
 
 // ── Data Source Declarations ────────────────────────────────────────────────
 
@@ -114,10 +116,41 @@ export const DATASOURCE_MAYA: DataSource = {
 };
 
 /**
+ * Interactive Brokers — US broker accessed via local Client Portal Gateway.
+ *
+ * The gateway runs locally (Docker or Java JAR) at localhost:5000.
+ * User authenticates via the gateway's browser UI (username + password + 2FA).
+ * Session lasts up to 24h, requires periodic tickle to stay alive.
+ *
+ * Prices only cover securities the user holds (conid-based).
+ * The gateway also provides security metadata (contract descriptions).
+ *
+ * Endpoints used:
+ *   - /portfolio/{accountId}/positions  → holdings (via IBApiImportHandler)
+ *   - /iserver/marketdata/snapshot      → price_fetch
+ *   - /iserver/auth/status              → session check
+ *   - /tickle                           → keepalive
+ */
+export const DATASOURCE_IB: DataSource = {
+  id: DATASOURCE_IB_ID,
+  name: 'Interactive Brokers',
+  status: 'active',
+  capabilities: ['price_fetch', 'security_metadata'],
+  priceCoverage: 'own_holdings',
+  securityIdScheme: 'conid',
+  authMethod: 'gateway',
+  providerId: IB_PROVIDER_ID,
+  pricePriority: 15,
+  createdAt: now,
+  updatedAt: now,
+};
+
+/**
  * All registered data sources, in priority order.
  */
 export const DATA_SOURCE_CATALOG: readonly DataSource[] = [
   DATASOURCE_PSAGOT,
+  DATASOURCE_IB,
   DATASOURCE_MAYA,
   DATASOURCE_EODHD,
 ];
@@ -132,6 +165,17 @@ export const DATA_SOURCE_CATALOG: readonly DataSource[] = [
  * - trade_import:       not yet (Psagot trade history endpoint not discovered)
  */
 export const PSAGOT_PROVIDER_CAPABILITIES: Provider['capabilities'] = [
+  'holdings_import',
+  'account_discovery',
+] as const;
+
+/**
+ * Interactive Brokers provider capabilities.
+ * - holdings_import:    via CP Gateway (fetchPositions)
+ * - account_discovery:  via CP Gateway (fetchAccounts)
+ * - trade_import:       not yet (orders endpoint exists but not implemented)
+ */
+export const IB_PROVIDER_CAPABILITIES: Provider['capabilities'] = [
   'holdings_import',
   'account_discovery',
 ] as const;
