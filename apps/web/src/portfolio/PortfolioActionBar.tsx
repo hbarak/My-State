@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import type { PriceSummary } from '../../../../packages/domain/src/types/marketPrice';
+import type { Account } from '../../../../packages/domain/src/types/account';
+import type { Provider } from '../../../../packages/domain/src/types/provider';
 import { ApiSyncCard } from '../import/ApiSyncCard';
 import { psagotSessionStore } from '../domain/bootstrap';
 import styles from './PortfolioActionBar.module.css';
+
+interface ProviderAccountGroup {
+  readonly provider: Provider;
+  readonly accounts: readonly Account[];
+}
 
 interface PortfolioActionBarProps {
   readonly pricesFetchedAt: string | undefined;
@@ -15,6 +22,9 @@ interface PortfolioActionBarProps {
   readonly autoRefreshIntervalMs?: number;
   readonly onIntervalChange?: (intervalMs: number) => void;
   readonly autoRefreshActive?: boolean;
+  readonly accountGroups?: readonly ProviderAccountGroup[];
+  readonly selectedAccountId?: string;
+  readonly onAccountFilterChange?: (accountId: string | undefined) => void;
 }
 
 const INTERVAL_OPTIONS = [
@@ -34,6 +44,9 @@ export function PortfolioActionBar({
   autoRefreshIntervalMs = 300_000,
   onIntervalChange,
   autoRefreshActive = false,
+  accountGroups = [],
+  selectedAccountId,
+  onAccountFilterChange,
 }: PortfolioActionBarProps): JSX.Element {
   const [syncOpen, setSyncOpen] = useState(false);
   const [psagotPriceStatus, setPsagotPriceStatus] = useState<'idle' | 'no_session'>('idle');
@@ -56,9 +69,33 @@ export function PortfolioActionBar({
     onRefresh();
   };
 
+  const handleAccountChange = (value: string): void => {
+    onAccountFilterChange?.(value === '' ? undefined : value);
+  };
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.bar}>
+        {onAccountFilterChange && accountGroups.length > 0 && (
+          <select
+            className={styles.accountFilter}
+            value={selectedAccountId ?? ''}
+            onChange={(e) => handleAccountChange(e.target.value)}
+            aria-label="Filter by account"
+          >
+            <option value="">All accounts</option>
+            {accountGroups.map((group) => (
+              <optgroup key={group.provider.id} label={group.provider.name}>
+                {group.accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
+
         <span className={styles.timestamp}>
           {pricesFetchedAt
             ? `Prices as of ${formatRelativeTime(pricesFetchedAt)}`

@@ -22,9 +22,6 @@ import { EODHDClient, EODHDError } from 'eodhd';
 const MAX_TICKERS = 50;
 const MAX_BODY_BYTES = 64 * 1024; // 64KB — generous for up to 50 short ticker strings
 
-// [TEMPORARY: S9 diagnostic — remove before R10]
-let _eohdCallCount = 0;
-
 /**
  * Reads and parses a JSON body from a Node.js IncomingMessage stream.
  * Throws if the body exceeds MAX_BODY_BYTES or is not valid JSON.
@@ -187,10 +184,6 @@ async function pricesHandler(req: IncomingMessage, res: ServerResponse, apiKey: 
   // Batch call: first ticker in path, rest in `s` param — counts as 1 quota unit
   const [firstTicker, ...remainingTickers] = eodhdTickers;
   const sParam = remainingTickers.join(',');
-
-  // [TEMPORARY: S9 diagnostic — remove before R10]
-  _eohdCallCount++;
-  console.info(`[EODHD] call #${_eohdCallCount} in this session`);
 
   let quotesRaw: unknown;
   try {

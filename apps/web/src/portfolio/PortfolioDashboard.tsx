@@ -6,6 +6,8 @@ import { PortfolioSummary } from './PortfolioSummary';
 import { PositionTable } from './PositionTable';
 import { PortfolioActionBar } from './PortfolioActionBar';
 import type { TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
+import type { Account } from '../../../../packages/domain/src/types/account';
+import type { Provider } from '../../../../packages/domain/src/types/provider';
 import styles from './PortfolioDashboard.module.css';
 
 const AUTO_REFRESH_CONFIG_KEY = 'my-stocks:web:auto-refresh-config';
@@ -48,12 +50,17 @@ async function fetchExchangeRate(): Promise<number | null> {
   }
 }
 
+interface ProviderAccountGroup {
+  readonly provider: Provider;
+  readonly accounts: readonly Account[];
+}
+
 export function PortfolioDashboard(): JSX.Element {
-  // No providerId filter — show all providers' holdings in the unified portfolio view
-  const { state, data, error, priceQuotaExceeded, refetch } = useEnrichedHoldings();
-  const [expandedSecurityId, setExpandedSecurityId] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(undefined);
+  const { state, data, error, priceQuotaExceeded, refetch } = useEnrichedHoldings(undefined, selectedAccountId);
   const [tickerMappings, setTickerMappings] = useState<ReadonlyMap<string, TickerMappingStatus>>(new Map());
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [accountGroups, setAccountGroups] = useState<ProviderAccountGroup[]>([]);
   const fetchVersion = useRef(0);
 
   const [autoRefreshConfig, setAutoRefreshConfig] = useState(loadAutoRefreshConfig);
@@ -96,19 +103,22 @@ export function PortfolioDashboard(): JSX.Element {
     fetchExchangeRate().then(setExchangeRate).catch(() => setExchangeRate(null));
   }, []);
 
-  const handleResetTicker = useCallback(async (securityId: string): Promise<void> => {
-    await domain.tickerResolver.resetMapping(securityId);
-    await loadTickerMappings();
-    refetch();
-  }, [loadTickerMappings, refetch]);
-
-  const handleSelectPosition = (securityId: string): void => {
-    setExpandedSecurityId((prev) => (prev === securityId ? null : securityId));
-  };
-
-  const handleCloseDrillDown = (): void => {
-    setExpandedSecurityId(null);
-  };
+  // Load provider/account groups for filter dropdown
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const providers = await domain.repository.getProviders();
+      const groups: ProviderAccountGroup[] = [];
+      for (const provider of providers) {
+        const accounts = await domain.accountService.listByProvider(provider.id);
+        if (accounts.length > 0) {
+          groups.push({ provider, accounts });
+        }
+      }
+      if (!cancelled) setAccountGroups(groups);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   if (state === 'loading' && !data) {
     return (
@@ -149,19 +159,16 @@ export function PortfolioDashboard(): JSX.Element {
         autoRefreshIntervalMs={autoRefreshConfig.intervalMs}
         onIntervalChange={handleIntervalChange}
         autoRefreshActive={autoRefreshActive}
+        accountGroups={accountGroups}
+        selectedAccountId={selectedAccountId}
+        onAccountFilterChange={setSelectedAccountId}
       />
 
       <PortfolioSummary enrichedState={data} exchangeRate={exchangeRate} />
 
       <PositionTable
         positions={data.positions}
-
-        expandedSecurityId={expandedSecurityId}
-        onSelectPosition={handleSelectPosition}
-        onCloseDrillDown={handleCloseDrillDown}
         tickerMappings={tickerMappings}
-        onResetTicker={(securityId) => void handleResetTicker(securityId)}
-        onPortfolioChanged={refetch}
         exchangeRate={exchangeRate}
       />
     </div>

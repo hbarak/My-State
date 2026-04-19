@@ -10,7 +10,7 @@ export class TotalHoldingsStateBuilder {
   // "no preference", which would resurface the net-worth doubling bug. Resolution is enforced
   // by FinancialStateApi, but callers that bypass it (e.g. direct test or future code) must
   // pass apiIntegrationIds explicitly. Consider moving resolution inside build() at R5.
-  async build(params?: { providerId?: string; apiIntegrationIds?: ReadonlySet<string> }): Promise<TotalHoldingsState> {
+  async build(params?: { providerId?: string; accountId?: string; apiIntegrationIds?: ReadonlySet<string> }): Promise<TotalHoldingsState> {
     const records = params?.providerId
       ? await this.repository.listHoldingRecordsByProvider(params.providerId)
       : await this.repository.listHoldingRecords();
@@ -25,7 +25,10 @@ export class TotalHoldingsStateBuilder {
         .map((run) => [run.id, run]),
     );
 
-    const eligible = records.filter((record) => isRecordEligible(record, validRuns));
+    const afterEligibility = records.filter((record) => isRecordEligible(record, validRuns));
+    const eligible = params?.accountId
+      ? afterEligibility.filter((record) => record.accountId === params.accountId)
+      : afterEligibility;
 
     const groupedByKey = new Map<string, ProviderHoldingRecord[]>();
     for (const record of eligible) {

@@ -30,6 +30,7 @@ export interface TotalHoldingsSummary {
 
 export interface ListTotalHoldingsPositionsParams {
   providerId?: string;
+  accountId?: string;
   currency?: string;
   securityId?: string;
 }
@@ -43,12 +44,12 @@ export class FinancialStateApi {
     this.builder = new TotalHoldingsStateBuilder(repository);
   }
 
-  async buildTotalHoldingsState(params?: { providerId?: string }): Promise<TotalHoldingsState> {
+  async buildTotalHoldingsState(params?: { providerId?: string; accountId?: string }): Promise<TotalHoldingsState> {
     const apiIntegrationIds = await resolveApiIntegrationIds(this.repository, params?.providerId);
     return this.builder.build({ ...params, apiIntegrationIds });
   }
 
-  async getTotalHoldingsSummary(params?: { providerId?: string }): Promise<TotalHoldingsSummary> {
+  async getTotalHoldingsSummary(params?: { providerId?: string; accountId?: string }): Promise<TotalHoldingsSummary> {
     const state = await this.buildTotalHoldingsState(params);
     return {
       asOf: state.asOf,
@@ -63,7 +64,7 @@ export class FinancialStateApi {
   async listTotalHoldingsPositions(
     params?: ListTotalHoldingsPositionsParams,
   ): Promise<TotalHoldingsPosition[]> {
-    const state = await this.buildTotalHoldingsState({ providerId: params?.providerId });
+    const state = await this.buildTotalHoldingsState({ providerId: params?.providerId, accountId: params?.accountId });
 
     return state.positions.filter((position) => {
       if (params?.currency && position.currency !== params.currency) return false;

@@ -1,4 +1,5 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { Router, Route, Link, useLocation } from 'wouter';
 import {
   SPRINT1_HOLDINGS_INTEGRATION_ID,
   SPRINT1_PROVIDER_ID,
@@ -22,6 +23,7 @@ import {
   type ResolutionRowOutcome,
 } from './import/resolutionAuditStore';
 import { PortfolioDashboard } from './portfolio';
+import { StockDetailPage } from './portfolio/StockDetailPage';
 import { AddDataWizard } from './import/AddDataWizard';
 import type { PreviewSummary, CommitSummary } from './import/AddDataWizard';
 import { DataTab } from './data/DataTab';
@@ -33,7 +35,6 @@ type PreviewRow = PreviewResult['validRows'][number];
 type CommitResult = Awaited<ReturnType<typeof domain.importService.commitImport>>;
 type HoldingsState = Awaited<ReturnType<typeof domain.financialStateService.getTotalHoldingsState>>;
 
-type ActiveView = 'portfolio' | 'data';
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
 type BootstrapStatus = 'loading' | 'ready' | 'error';
 type MigrationStatus = 'idle' | 'running' | 'done' | 'error';
@@ -51,7 +52,7 @@ export default function App(): JSX.Element {
   const [migrationStep, setMigrationStep] = useState(0);
   const [migrationError, setMigrationError] = useState<string | null>(null);
   const [needsMigration, setNeedsMigration] = useState(false);
-  const [activeView, setActiveView] = useState<ActiveView>('portfolio');
+  const [, navigate] = useLocation();
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>('loading');
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [status, setStatus] = useState<ImportStatus>('idle');
@@ -348,32 +349,21 @@ export default function App(): JSX.Element {
 
   return (
     <main className={styles.shell}>
-      <header className={styles.header}>
-        <span className={styles.logo}>my-stocks</span>
-        <nav className={styles.tabs}>
-          <button
-            className={activeView === 'portfolio' ? styles.tabActive : styles.tab}
-            onClick={() => setActiveView('portfolio')}
-          >
-            Portfolio
-          </button>
-          <button
-            className={activeView === 'data' ? styles.tabActive : styles.tab}
-            onClick={() => setActiveView('data')}
-          >
-            Data
-          </button>
-        </nav>
-        <div className={styles.headerActions} />
-      </header>
+      <AppHeader />
 
-      {activeView === 'portfolio' && bootstrapStatus === 'ready' && <PortfolioDashboard />}
-      {activeView === 'portfolio' && bootstrapStatus === 'loading' && <p>Preparing...</p>}
-      {activeView === 'portfolio' && bootstrapStatus === 'error' && (
-        <p className={styles.error}>Setup failed: {bootstrapError}</p>
-      )}
+      <Route path="/">
+        {bootstrapStatus === 'ready' && <PortfolioDashboard />}
+        {bootstrapStatus === 'loading' && <p>Preparing...</p>}
+        {bootstrapStatus === 'error' && (
+          <p className={styles.error}>Setup failed: {bootstrapError}</p>
+        )}
+      </Route>
 
-      {activeView === 'data' && (
+      <Route path="/stock/:securityId">
+        {(params) => <StockDetailPage securityId={params.securityId} />}
+      </Route>
+
+      <Route path="/data">
         <DataTab
           accounts={accounts}
           selectedAccountId={selectedAccountId}
@@ -394,9 +384,9 @@ export default function App(): JSX.Element {
           onContinueWithValidRows={() => void onContinueWithValidRows()}
           onCancelImport={onCancelImport}
           onUndoLastImport={() => void onUndoLastImport()}
-          onNavigateToPortfolio={() => setActiveView('portfolio')}
+          onNavigateToPortfolio={() => navigate('/')}
         />
-      )}
+      </Route>
     </main>
   );
 }
@@ -533,4 +523,25 @@ function buildCommitSummary(result: CommitResult): import('./import/AddDataWizar
     skippedRows: result.skippedRows,
     errorRows: result.errorRows,
   };
+}
+
+function AppHeader(): JSX.Element {
+  const [location] = useLocation();
+  const isPortfolio = location === '/' || location.startsWith('/stock/');
+  const isData = location === '/data';
+
+  return (
+    <header className={styles.header}>
+      <Link href="/" className={styles.logo}>my-stocks</Link>
+      <nav className={styles.tabs}>
+        <Link href="/" className={isPortfolio ? styles.tabActive : styles.tab}>
+          Portfolio
+        </Link>
+        <Link href="/data" className={isData ? styles.tabActive : styles.tab}>
+          Data
+        </Link>
+      </nav>
+      <div className={styles.headerActions} />
+    </header>
+  );
 }

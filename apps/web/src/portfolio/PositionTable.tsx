@@ -1,31 +1,22 @@
 import { useMemo } from 'react';
+import { useLocation } from 'wouter';
 import type { EnrichedHoldingsPosition, PriceSource, TickerMappingStatus } from '../../../../packages/domain/src/types/marketPrice';
-import { SecurityDrillDown } from './SecurityDrillDown';
 import { formatQty, convertUsdToIls } from './formatters';
 import styles from './PositionTable.module.css';
 import tickerStyles from './TickerStatus.module.css';
 
 interface PositionTableProps {
   readonly positions: readonly EnrichedHoldingsPosition[];
-  readonly expandedSecurityId: string | null;
-  readonly onSelectPosition: (securityId: string) => void;
-  readonly onCloseDrillDown: () => void;
   readonly tickerMappings?: ReadonlyMap<string, TickerMappingStatus>;
-  readonly onResetTicker?: (securityId: string) => void;
-  readonly onPortfolioChanged?: () => void;
   readonly exchangeRate?: number | null;
 }
 
 export function PositionTable({
   positions,
-  expandedSecurityId,
-  onSelectPosition,
-  onCloseDrillDown,
   tickerMappings,
-  onResetTicker,
-  onPortfolioChanged,
   exchangeRate,
 }: PositionTableProps): JSX.Element {
+  const [, navigate] = useLocation();
   const sorted = useMemo(
     () =>
       [...positions].sort((a, b) => {
@@ -51,23 +42,15 @@ export function PositionTable({
           </tr>
         </thead>
         <tbody>
-          {sorted.map((pos) => {
-            const isExpanded = pos.securityId === expandedSecurityId;
-            return (
-              <PositionRow
-                key={pos.key}
-                position={pos}
-                providerId={pos.providerId}
-                isExpanded={isExpanded}
-                onSelect={() => onSelectPosition(pos.securityId)}
-                onClose={onCloseDrillDown}
-                tickerStatus={tickerMappings?.get(pos.securityId)}
-                onResetTicker={onResetTicker}
-                onPortfolioChanged={onPortfolioChanged}
-                exchangeRate={exchangeRate ?? null}
-              />
-            );
-          })}
+          {sorted.map((pos) => (
+            <PositionRow
+              key={pos.key}
+              position={pos}
+              onSelect={() => navigate(`/stock/${encodeURIComponent(pos.securityId)}`)}
+              tickerStatus={tickerMappings?.get(pos.securityId)}
+              exchangeRate={exchangeRate ?? null}
+            />
+          ))}
         </tbody>
       </table>
     </div>
@@ -76,23 +59,13 @@ export function PositionTable({
 
 function PositionRow({
   position,
-  providerId,
-  isExpanded,
   onSelect,
-  onClose,
   tickerStatus,
-  onResetTicker,
-  onPortfolioChanged,
   exchangeRate,
 }: {
   readonly position: EnrichedHoldingsPosition;
-  readonly providerId: string;
-  readonly isExpanded: boolean;
   readonly onSelect: () => void;
-  readonly onClose: () => void;
   readonly tickerStatus?: TickerMappingStatus;
-  readonly onResetTicker?: (securityId: string) => void;
-  readonly onPortfolioChanged?: () => void;
   readonly exchangeRate: number | null;
 }): JSX.Element {
   const isUsd = position.currency === 'USD';
@@ -101,50 +74,39 @@ function PositionRow({
     : null;
 
   return (
-    <>
-      <tr
-        className={rowClassName(position.priceSource, isExpanded)}
-        onClick={onSelect}
-        title={priceTooltip(position.priceSource)}
-      >
-        <td>
-          <div className={styles.nameCell}>
-            <span className={styles.securityName}>
-              {position.securityName ?? position.securityId}
-            </span>
-            <TickerCell
-              securityId={position.securityId}
-              ticker={position.ticker}
-              tickerStatus={tickerStatus}
-            />
-          </div>
-        </td>
-        <td className={styles.hideNarrow}>{formatQty(position.quantity)}</td>
-        <td className={`${styles.num} ${styles.hideNarrow}`}>{formatMoney(position.costBasis, position.currency)}</td>
-        <td className={`${styles.num} ${styles.hideNarrow}`}>{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
-        <td className={styles.num}>
-          <ValueCell
-            position={position}
-            isUsd={isUsd}
-            ilsValue={ilsValue}
-            rateAvailable={exchangeRate !== null}
+    <tr
+      className={rowClassName(position.priceSource, false)}
+      onClick={onSelect}
+      title={priceTooltip(position.priceSource)}
+      style={{ cursor: 'pointer' }}
+    >
+      <td>
+        <div className={styles.nameCell}>
+          <span className={styles.securityName}>
+            {position.securityName ?? position.securityId}
+          </span>
+          <TickerCell
+            securityId={position.securityId}
+            ticker={position.ticker}
+            tickerStatus={tickerStatus}
           />
-        </td>
-        <td className={styles.num}>
-          <GainPill gain={position.unrealizedGain} gainPct={position.unrealizedGainPct} />
-        </td>
-      </tr>
-      {isExpanded && (
-        <SecurityDrillDown
+        </div>
+      </td>
+      <td className={styles.hideNarrow}>{formatQty(position.quantity)}</td>
+      <td className={`${styles.num} ${styles.hideNarrow}`}>{formatMoney(position.costBasis, position.currency)}</td>
+      <td className={`${styles.num} ${styles.hideNarrow}`}>{position.currentPrice !== undefined ? formatMoney(position.currentPrice, position.currency) : '—'}</td>
+      <td className={styles.num}>
+        <ValueCell
           position={position}
-          providerId={providerId}
-          onClose={onClose}
-          onPortfolioChanged={onPortfolioChanged}
-          onResetTicker={onResetTicker}
-          tickerStatus={tickerStatus}
+          isUsd={isUsd}
+          ilsValue={ilsValue}
+          rateAvailable={exchangeRate !== null}
         />
-      )}
-    </>
+      </td>
+      <td className={styles.num}>
+        <GainPill gain={position.unrealizedGain} gainPct={position.unrealizedGainPct} />
+      </td>
+    </tr>
   );
 }
 

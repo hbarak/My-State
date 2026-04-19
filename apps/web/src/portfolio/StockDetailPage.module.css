@@ -1,0 +1,195 @@
+.page {
+  padding: var(--space-4);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.backButton {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--color-accent, var(--color-brand));
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) 0;
+  margin-bottom: var(--space-4);
+}
+
+.backButton:hover {
+  text-decoration: underline;
+}
+
+/* Header */
+.header {
+  margin-bottom: var(--space-5);
+}
+
+.headerMain {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.securityName {
+  font-size: var(--font-size-xl, 1.5rem);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.ticker {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.headerStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.statLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statValue {
+  font-size: var(--font-size-md, 1rem);
+  font-weight: var(--font-weight-semibold);
+}
+
+.gainPct {
+  font-weight: var(--font-weight-normal);
+  font-size: var(--font-size-sm);
+}
+
+.gainPositive {
+  color: var(--color-gain, #16a34a);
+}
+
+.gainNegative {
+  color: var(--color-loss, #dc2626);
+}
+
+/* Section titles */
+.sectionTitle {
+  font-size: var(--font-size-md, 1rem);
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--space-3);
+}
+
+/* Layers */
+.layersSection {
+  margin-bottom: var(--space-5);
+}
+
+.layersContainer {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  min-height: 80px;
+}
+
+.layerBar {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm, 4px);
+  min-height: 28px;
+  transition: opacity var(--transition-fast, 0.15s);
+}
+
+.layerBar:hover {
+  opacity: 0.85;
+}
+
+.layerGain {
+  background: var(--color-gain-bg, #dcfce7);
+  border-left: 3px solid var(--color-gain, #16a34a);
+}
+
+.layerLoss {
+  background: var(--color-loss-bg, #fee2e2);
+  border-left: 3px solid var(--color-loss, #dc2626);
+}
+
+.layerNeutral {
+  background: var(--color-bg-secondary, #f3f4f6);
+  border-left: 3px solid var(--color-border-strong, #9ca3af);
+}
+
+.layerLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Account breakdown */
+.accountBreakdown {
+  margin-bottom: var(--space-5);
+}
+
+.lotsSection {
+  margin-bottom: var(--space-5);
+}
+
+/* Lot table */
+.lotTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.lotTable th {
+  text-align: left;
+  padding: var(--space-2);
+  border-bottom: 2px solid var(--color-border-strong, #d1d5db);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lotTable td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.num {
+  text-align: right;
+}
+
+/* Utility */
+.muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.errorText {
+  color: var(--color-error-text, #991b1b);
+}
+
+.retryButton {
+  appearance: none;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.retryButton:hover {
+  background: var(--color-bg-secondary);
+}

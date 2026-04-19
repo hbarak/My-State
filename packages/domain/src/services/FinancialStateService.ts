@@ -18,11 +18,11 @@ export class FinancialStateService {
     this.enricher = enricher;
   }
 
-  getTotalHoldingsState(params?: { providerId?: string }): Promise<TotalHoldingsState> {
+  getTotalHoldingsState(params?: { providerId?: string; accountId?: string }): Promise<TotalHoldingsState> {
     return this.api.buildTotalHoldingsState(params);
   }
 
-  async getEnrichedHoldings(params?: { providerId?: string }): Promise<EnrichedHoldingsState> {
+  async getEnrichedHoldings(params?: { providerId?: string; accountId?: string }): Promise<EnrichedHoldingsState> {
     if (!this.enricher) {
       throw new Error('PortfolioPriceEnricher not configured. Call setEnricher() or pass enricher to constructor.');
     }
@@ -32,7 +32,7 @@ export class FinancialStateService {
     return result.state;
   }
 
-  async getNetWorthState(params?: { providerId?: string }): Promise<NetWorthState> {
+  async getNetWorthState(params?: { providerId?: string; accountId?: string }): Promise<NetWorthState> {
     const holdings = await this.getTotalHoldingsState(params);
 
     return {

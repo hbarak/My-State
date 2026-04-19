@@ -182,6 +182,55 @@ describe('TotalHoldingsStateBuilder', () => {
     expect(state.insufficientData).toBe(true);
   });
 
+  it('filters positions by accountId when provided', async () => {
+    const repository = new LocalPortfolioRepository(new InMemoryStore());
+    const builder = new TotalHoldingsStateBuilder(repository);
+
+    await repository.addImportRun(run({ id: 'run-1' }));
+
+    await repository.upsertHoldingRecords([
+      holding({ id: 'h1', importRunId: 'run-1', securityId: 'AAA', accountId: 'acct-1', quantity: 5, costBasis: 100, currentPrice: 12 }),
+      holding({ id: 'h2', importRunId: 'run-1', securityId: 'AAA', accountId: 'acct-2', quantity: 3, costBasis: 120, currentPrice: 12 }),
+      holding({ id: 'h3', importRunId: 'run-1', securityId: 'BBB', accountId: 'acct-1', quantity: 2, costBasis: 50, currentPrice: 20 }),
+      holding({ id: 'h4', importRunId: 'run-1', securityId: 'BBB', accountId: 'acct-2', quantity: 4, costBasis: 60, currentPrice: 20 }),
+    ]);
+
+    // Filter to acct-1 only
+    const state = await builder.build({ providerId: 'provider-1', accountId: 'acct-1' });
+
+    expect(state.positionCount).toBe(2);
+    const aaa = state.positions.find((p) => p.securityId === 'AAA');
+    const bbb = state.positions.find((p) => p.securityId === 'BBB');
+
+    // Only acct-1 lots included
+    expect(aaa?.quantity).toBe(5);
+    expect(aaa?.sourceRecordIds).toEqual(['h1']);
+    expect(bbb?.quantity).toBe(2);
+    expect(bbb?.sourceRecordIds).toEqual(['h3']);
+
+    // Totals reflect filtered data only
+    expect(state.quantityTotalsByCurrency.ILS).toBe(7); // 5 + 2
+  });
+
+  it('returns all accounts when accountId is not provided', async () => {
+    const repository = new LocalPortfolioRepository(new InMemoryStore());
+    const builder = new TotalHoldingsStateBuilder(repository);
+
+    await repository.addImportRun(run({ id: 'run-1' }));
+
+    await repository.upsertHoldingRecords([
+      holding({ id: 'h1', importRunId: 'run-1', securityId: 'AAA', accountId: 'acct-1', quantity: 5, costBasis: 100, currentPrice: 12 }),
+      holding({ id: 'h2', importRunId: 'run-1', securityId: 'AAA', accountId: 'acct-2', quantity: 3, costBasis: 120, currentPrice: 12 }),
+    ]);
+
+    // No accountId — all records included
+    const state = await builder.build({ providerId: 'provider-1' });
+
+    const aaa = state.positions.find((p) => p.securityId === 'AAA');
+    expect(aaa?.quantity).toBe(8); // 5 + 3
+    expect(aaa?.sourceRecordIds).toEqual(expect.arrayContaining(['h1', 'h2']));
+  });
+
   it('produces deterministic recordSetHash for the same included records', async () => {
     const store = new InMemoryStore();
     const repository = new LocalPortfolioRepository(store);
